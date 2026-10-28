@@ -1,0 +1,70 @@
+{
+  "name": "my-life-planner",
+  "productName": "나만의 플래너",
+  "version": "1.1.0",
+  "description": "기록은 가볍게, 다시 시작은 언제든 — 월간 달력과 일 다이어리 플래너",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "serve": "node server.js",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/cli": "^7.6.9",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/local-notifications": "^7.0.7"
+  },
+  "build": {
+    "appId": "com.osense.diary",
+    "productName": "계.. 획.. 비슷한 걸 세워보려고 합니다",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**",
+      "index.html",
+      "style.css",
+      "app.js",
+      "merge.js",
+      "server.js",
+      "manifest.webmanifest",
+      "sw.js",
+      "assets/*.png",
+      "package.json",
+      "assets/party/*",
+      "assets/*.ico"
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "계획비슷한걸-다이어리-설치-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "계.. 획.. 비슷한 걸 세워보려고 합니다"
+    },
+    "portable": {
+      "artifactName": "계획비슷한걸-다이어리-바로실행-${version}.${ext}"
+    }
+  }
+}

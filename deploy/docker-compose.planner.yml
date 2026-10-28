@@ -1,0 +1,28 @@
+# 플래너 동기화 서버 (GCP library-vm 위에서 기존 Caddy와 함께 동작)
+# 사용: /opt/planner 에서  docker compose -f deploy/docker-compose.planner.yml up -d --build
+services:
+  planner:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: planner
+    restart: unless-stopped
+    environment:
+      - PORT=4310
+      - PLANNER_DATA_DIR=/data
+    volumes:
+      - planner-data:/data
+    # 같은 PC(호스트)에서만 직접 접근 가능. 외부는 Caddy(https)를 거친다.
+    ports:
+      - "127.0.0.1:4311:4310"
+    networks:
+      - web
+
+networks:
+  web:
+    # 서재 앱의 Caddy가 붙어 있는 네트워크 이름. deploy-planner.ps1 이 실제 이름을 넣어 준다.
+    external: true
+    name: ${CADDY_NETWORK:-library_default}
+
+volumes:
+  planner-data:

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F5F4EF">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="다이어리">
+  <title>계.. 획..? 비슷한 걸 세워보려고 합니다.</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="assets/logo-1.png" id="favicon">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="stylesheet" href="style.css?v=__V__">
+</head>
+<body>
+  <div class="app">
+    <!-- 상단바: 한 줄에 인사·탭·상태 -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="logo-btn" id="logoBtn" title="로고 크게 보기" aria-label="로고 크게 보기">
+          <img class="logo" id="logoImg" src="assets/logo-1.png" alt="" width="44" height="44">
+        </button>
+        <h1 class="greet">계.. 획..? 비슷한 걸 세워보려고 합니다.</h1>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="메인 탭">
+        <button type="button" role="tab" id="tab-month" class="tab is-active" aria-selected="true" aria-controls="panel-month" data-view="month">월간 달력</button>
+        <button type="button" role="tab" id="tab-day" class="tab" aria-selected="false" aria-controls="panel-day" data-view="day" tabindex="-1">일 다이어리</button>
+        <button type="button" role="tab" id="tab-projects" class="tab" aria-selected="false" aria-controls="panel-projects" data-view="projects" tabindex="-1">프로젝트</button>
+        <button type="button" role="tab" id="tab-routines" class="tab" aria-selected="false" aria-controls="panel-routines" data-view="routines" tabindex="-1">루틴</button>
+      </div>
+
+      <div class="topbar-right">
+        <span class="today-date" id="todayDate"></span>
+        <button type="button" class="status-btn" id="syncStatusBtn" aria-expanded="false" aria-controls="syncPanel">이 기기에 저장 · 로그인 후 동기화</button>
+        <button type="button" class="btn reset small" id="resetTodayBtn">🌱 오늘 리셋</button>
+      </div>
+    </header>
+
+    <section class="sync-panel card" id="syncPanel" hidden>
+      <div class="sync-row">
+        <div>
+          <strong>기기 연결</strong>
+          <p class="muted small" id="syncHelp">동기화 코드를 만들면 다른 기기에서 같은 코드를 입력해 기록을 이어 볼 수 있어요.</p>
+        </div>
+        <button type="button" class="btn ghost small" id="syncCloseBtn">닫기</button>
+      </div>
+      <div class="sync-current" id="syncCurrent" hidden>
+        <span class="muted small">내 동기화 코드</span>
+        <code id="syncCodeText"></code>
+        <button type="button" class="btn ghost small" id="syncCopyBtn">복사</button>
+        <button type="button" class="btn ghost small" id="syncDisconnectBtn">연결 해제</button>
+      </div>
+      <div class="sync-actions" id="syncActions">
+        <button type="button" class="btn primary small" id="syncCreateBtn">새 동기화 코드 만들기</button>
+        <form class="inline-join" id="syncJoinForm">
+          <input type="text" id="syncJoinInput" placeholder="다른 기기의 코드 입력" autocomplete="off" spellcheck="false" aria-label="동기화 코드 입력">
+          <button type="submit" class="btn small">연결</button>
+        </form>
+      </div>
+      <div class="sync-server">
+        <span class="muted small">동기화 서버 주소</span>
+        <form class="inline-join" id="syncServerForm">
+          <input type="url" id="syncServerInput" placeholder="https://..." autocomplete="off" spellcheck="false" aria-label="동기화 서버 주소">
+          <button type="submit" class="btn small">적용</button>
+        </form>
+        <p class="muted small" id="syncServerHelp"></p>
+      </div>
+      <div class="sync-phone">
+        <strong class="small">📱 휴대폰에서 쓰기</strong>
+        <p class="muted small">휴대폰 브라우저(Chrome·삼성 인터넷)로 위 서버 주소를 연 뒤, 메뉴에서 <b>홈 화면에 추가</b>를 누르면 앱처럼 설치돼요. 같은 동기화 코드를 입력하면 양쪽이 실시간으로 이어집니다.</p>
+      </div>
+      <div class="sync-notify" id="notifyBox">
+        <strong class="small">⏰ 아침 알림</strong>
+        <div class="notify-row">
+          <label class="switch" title="아침 알림 켜기/끄기">
+            <input type="checkbox" id="notifyOn" aria-label="아침 알림 켜기">
+            <span class="switch-track" aria-hidden="true"></span>
+            <span class="switch-text">매일</span>
+          </label>
+          <input type="time" id="notifyTime" value="08:00" aria-label="알림 시간">
+          <button type="button" class="btn ghost small" id="notifyTestBtn">미리 보기</button>
+        </div>
+        <p class="muted small" id="notifyHelp">그날의 기념일·일정, 하루 계획, 루틴을 정한 시간에 알려드려요.</p>
+      </div>
+      <div class="sync-backup">
+        <span class="muted small">전체 기록 백업</span>
+        <button type="button" class="btn ghost small" id="backupBtn">백업 파일 내려받기</button>
+        <button type="button" class="btn ghost small" id="restoreBtn">백업 불러오기</button>
+        <input type="file" id="restoreInput" accept="application/json,.json" hidden>
+      </div>
+    </section>
+
+    <div class="layout">
+      <main class="main-col">
+        <!-- 월간 달력: 남은 높이를 꽉 채운다 -->
+        <section id="panel-month" role="tabpanel" aria-labelledby="tab-month" class="view">
+          <div class="card calendar-card">
+            <div class="cal-head">
+              <div>
+                <h2 class="cal-title" id="monthTitle">2026년 10월</h2>
+                <p class="hint muted small">한 번 누르면 선택 · 두 번 누르면 일 다이어리 · 일정 이름을 누르면 수정</p>
+              </div>
+              <div class="cal-nav">
+                <button type="button" class="btn primary small" id="calAddEventBtn">+ 기념일·일정</button>
+                <button type="button" class="btn ghost icon" id="prevMonthBtn" aria-label="이전 달">‹</button>
+                <button type="button" class="btn ghost" id="monthTodayBtn">오늘</button>
+                <button type="button" class="btn ghost icon" id="nextMonthBtn" aria-label="다음 달">›</button>
+              </div>
+            </div>
+            <div class="weekdays" aria-hidden="true">
+              <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span>
+            </div>
+            <div class="cal-grid" id="calendarGrid"></div>
+          </div>
+
+          <!-- 선택한 날짜의 일정·할 일 (휴대폰 화면에서 달력 아래에 표시) -->
+          <div class="card agenda" id="agenda">
+            <div class="agenda-head">
+              <div>
+                <h2 id="agendaTitle"></h2>
+                <p class="muted small" id="agendaSub"></p>
+              </div>
+              <div class="card-actions">
+                <button type="button" class="btn ghost small" id="agendaDiaryBtn">일 다이어리</button>
+                <button type="button" class="btn primary small" id="agendaAddBtn">+ 일정</button>
+              </div>
+            </div>
+            <ul class="agenda-list" id="agendaList"></ul>
+          </div>
+        </section>
+
+        <!-- 일 다이어리 -->
+        <section id="panel-day" role="tabpanel" aria-labelledby="tab-day" class="view" hidden>
+          <div class="card day-bar">
+            <h2 class="day-title" id="dayTitle"></h2>
+            <div class="cal-nav">
+              <button type="button" class="btn ghost" id="prevDayBtn">‹ 전날</button>
+              <button type="button" class="btn ghost" id="dayTodayBtn">오늘</button>
+              <button type="button" class="btn ghost" id="nextDayBtn">다음 날 ›</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>하루 계획</h2>
+              <span class="muted small" id="taskCount">0 / 0 완료</span>
+            </div>
+            <div class="progress" aria-hidden="true"><div class="progress-bar" id="taskProgress"></div></div>
+            <ul class="task-list" id="taskList"></ul>
+            <form id="taskForm" class="inline-add">
+              <input type="text" id="taskInput" placeholder="할 일 하나만 더 적기" maxlength="120" autocomplete="off" aria-label="할 일 추가">
+              <button type="submit" class="btn primary">+ 추가</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>✍️ 빠른 기록</h2>
+                <p class="muted small">생각날 때 바로 적기 · 사진도 함께</p>
+              </div>
+            </div>
+            <form id="noteForm" class="note-form">
+              <textarea id="noteText" rows="4" placeholder="지금 떠오른 생각, 해야 할 일, 기억할 것…"></textarea>
+              <div class="note-preview" id="notePreview" hidden>
+                <img id="notePreviewImg" alt="첨부할 사진 미리보기">
+                <span class="muted small" id="notePreviewName"></span>
+                <button type="button" class="btn link danger" id="notePhotoRemove">사진 빼기</button>
+              </div>
+              <div class="form-row">
+                <input type="text" id="noteMood" placeholder="기분 한 단어 (선택)" maxlength="20" autocomplete="off">
+                <button type="button" class="btn ghost" id="notePhotoBtn">📷 사진</button>
+                <input type="file" id="notePhotoInput" accept="image/*" hidden>
+                <button type="submit" class="btn primary">기록하기</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>이날의 기록</h2>
+                <p class="muted small">글과 사진이 시간순으로 쌓여요</p>
+              </div>
+            </div>
+            <ul class="note-list" id="noteList"></ul>
+          </div>
+        </section>
+
+        <!-- 프로젝트: 프로젝트별 상태·날짜별 체크·할 일·메모·진행 기록 -->
+        <section id="panel-projects" role="tabpanel" aria-labelledby="tab-projects" class="view" hidden>
+          <div class="projects-layout">
+            <div class="card projects-list-card">
+              <div class="card-head">
+                <h2>프로젝트</h2>
+                <div class="tabs mini" role="group" aria-label="상태 필터" id="projectFilter">
+                  <button type="button" class="tab is-active" data-filter="all">전체</button>
+                  <button type="button" class="tab" data-filter="active">진행 중</button>
+                  <button type="button" class="tab" data-filter="paused">보류</button>
+                  <button type="button" class="tab" data-filter="done">완료</button>
+                </div>
+              </div>
+              <div id="projectGroups"></div>
+              <form id="projectAddForm" class="project-add">
+                <input type="text" id="projectAddInput" placeholder="새 프로젝트 이름" maxlength="60" autocomplete="off" aria-label="새 프로젝트 이름">
+                <select id="projectAddCat" aria-label="분류">
+                  <option value="work">일·제품</option>
+                  <option value="personal">개인</option>
+                </select>
+                <button type="submit" class="btn primary">+ 추가</button>
+              </form>
+            </div>
+
+            <div class="project-detail" id="projectDetail">
+              <!-- 휴대폰: 상세 화면 상단 바 (목록으로 돌아가기) -->
+              <div class="pp-bar">
+                <button type="button" class="btn ghost small" id="pdBack">‹ 프로젝트 목록</button>
+                <span class="pp-bar-title" id="pdBarTitle"></span>
+              </div>
+              <div class="card" id="projectEmpty"><p class="empty">목록에서 프로젝트를 고르거나 새로 추가해 보세요.</p></div>
+              <div id="projectBody" hidden>
+                <!-- 머리 카드: 이름·상태·진행률·요약 숫자 -->
+                <div class="card pd-hero" id="pdHero">
+                  <div class="pd-head">
+                    <input type="text" id="pdTitle" class="pd-title" maxlength="60" autocomplete="off" aria-label="프로젝트 이름">
+                    <div class="pd-tools">
+                      <select id="pdCat" aria-label="분류">
+                        <option value="work">일·제품</option>
+                        <option value="personal">개인</option>
+                      </select>
+                      <button type="button" class="btn link danger" id="pdDelete">삭제</button>
+                    </div>
+                  </div>
+                  <div class="pd-status tabs mini" role="group" aria-label="상태">
+                    <button type="button" class="tab" data-status="active">🟢 진행 중</button>
+                    <button type="button" class="tab" data-status="paused">⏸ 보류</button>
+                    <button type="button" class="tab" data-status="done">✅ 완료</button>
+                  </div>
+                  <div class="pd-stats">
+                    <div class="pd-ring" id="pdRing" role="img" aria-label="진행률">
+                      <span id="pdRingText">0%</span>
+                    </div>
+                    <div class="pd-stat"><b id="pdStatTasks">0/0</b><span>할 일 완료</span></div>
+                    <div class="pd-stat"><b id="pdStatLogs">0</b><span>진행 기록</span></div>
+                    <div class="pd-stat"><b id="pdStatUpdated">-</b><span>마지막 변경</span></div>
+                  </div>
+                  <p class="muted small" id="pdMeta"></p>
+                </div>
+
+                <!-- 날짜별 체크: 켜고 끌 수 있는 습관 달력 (예: 운동한 날) -->
+                <div class="card pd-section pd-check" id="pdCheckCard">
+                  <div class="card-head">
+                    <div>
+                      <h3>📅 날짜별 체크</h3>
+                      <p class="muted small" id="pdCheckHint">운동한 날처럼, 날짜마다 표시하고 싶을 때 켜세요.</p>
+                    </div>
+                    <label class="switch" title="날짜별 체크 사용">
+                      <input type="checkbox" id="pdCheckOn" aria-label="날짜별 체크 사용">
+                      <span class="switch-track" aria-hidden="true"></span>
+                      <span class="switch-text">사용</span>
+                    </label>
+                  </div>
+                  <div id="pdCheckBody" hidden>
+                    <div class="ck-top">
+                      <input type="text" id="pdCheckLabel" class="ck-label" maxlength="30" autocomplete="off" placeholder="무엇을 체크하나요? 예: 운동한 날" aria-label="체크 이름">
+                      <div class="ck-stats" id="pdCheckStats"></div>
+                    </div>
+                    <div class="ck-nav">
+                      <button type="button" class="btn ghost icon" id="pdCheckPrev" aria-label="이전 달">‹</button>
+                      <strong id="pdCheckMonth"></strong>
+                      <button type="button" class="btn ghost icon" id="pdCheckNext" aria-label="다음 달">›</button>
+                      <button type="button" class="btn ghost small" id="pdCheckToday">이번 달</button>
+                    </div>
+                    <div class="ck-weekdays" aria-hidden="true">
+                      <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span>
+                    </div>
+                    <div class="ck-grid" id="pdCheckGrid" role="group" aria-label="날짜별 체크 달력"></div>
+                    <p class="muted small">날짜를 누르면 체크·해제돼요. 이 프로젝트에 연결된 루틴을 완료하면 그날이 자동으로 체크됩니다.</p>
+                  </div>
+                </div>
+
+                <div class="card pd-section">
+                  <div class="card-head">
+                    <h3>✅ 할 일</h3>
+                    <span class="muted small" id="pdTaskCount">0 / 0 완료</span>
+                  </div>
+                  <div class="progress" aria-hidden="true"><div class="progress-bar" id="pdProgress"></div></div>
+                  <ul class="task-list" id="pdTaskList"></ul>
+                  <form id="pdTaskForm" class="inline-add">
+                    <input type="text" id="pdTaskInput" placeholder="이 프로젝트의 할 일 추가" maxlength="120" autocomplete="off" aria-label="프로젝트 할 일 추가">
+                    <button type="submit" class="btn primary">+ 추가</button>
+                  </form>
+                </div>
+
+                <div class="card pd-section">
+                  <div class="card-head">
+                    <h3>📝 메모</h3>
+                    <span class="muted small">자동 저장</span>
+                  </div>
+                  <textarea id="pdMemo" rows="4" placeholder="목표, 아이디어, 링크, 참고할 것…" aria-label="메모"></textarea>
+                </div>
+
+                <div class="card pd-section">
+                  <div class="card-head">
+                    <h3>🕒 진행 기록</h3>
+                    <span class="muted small">오늘 한 일을 한 줄로</span>
+                  </div>
+                  <form id="pdLogForm" class="inline-add">
+                    <input type="text" id="pdLogInput" placeholder="예: 시안 2개 보냄, 거래처 통화" maxlength="200" autocomplete="off" aria-label="진행 기록 추가">
+                    <button type="submit" class="btn primary">기록</button>
+                  </form>
+                  <ul class="pd-log" id="pdLogList"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 루틴: 등록하면 해당 요일의 하루 계획(매일 할 일)에 자동으로 들어간다 -->
+        <section id="panel-routines" role="tabpanel" aria-labelledby="tab-routines" class="view" hidden>
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>🔁 루틴 등록</h2>
+                <p class="muted small">여기에 등록한 루틴은 정한 요일마다 하루 계획에 자동으로 들어가요.</p>
+              </div>
+              <span class="muted small" id="routineTodayCount"></span>
+            </div>
+            <form id="routineForm" class="routine-form">
+              <input type="text" id="routineText" maxlength="80" autocomplete="off" placeholder="예: 아침 운동 30분, 영어 단어 20개" aria-label="루틴 내용">
+              <div class="wd-row">
+                <div class="wd-pick" id="routineDays" role="group" aria-label="요일 선택">
+                  <button type="button" class="wd is-on" data-day="1">월</button>
+                  <button type="button" class="wd is-on" data-day="2">화</button>
+                  <button type="button" class="wd is-on" data-day="3">수</button>
+                  <button type="button" class="wd is-on" data-day="4">목</button>
+                  <button type="button" class="wd is-on" data-day="5">금</button>
+                  <button type="button" class="wd is-on" data-day="6">토</button>
+                  <button type="button" class="wd is-on" data-day="0">일</button>
+                </div>
+                <div class="wd-quick">
+                  <button type="button" class="btn link" data-preset="all">매일</button>
+                  <button type="button" class="btn link" data-preset="weekday">평일</button>
+                  <button type="button" class="btn link" data-preset="weekend">주말</button>
+                </div>
+              </div>
+              <div class="form-row">
+                <label class="field">
+                  <span>프로젝트와 연결 (선택)</span>
+                  <select id="routineProject"><option value="">연결 안 함</option></select>
+                </label>
+              </div>
+              <p class="muted small">프로젝트에 연결하면, 그 루틴을 완료한 날이 프로젝트의 ‘날짜별 체크’에 자동으로 표시돼요.</p>
+              <div class="form-actions">
+                <button type="button" class="btn ghost" id="routineCancelBtn" hidden>취소</button>
+                <button type="submit" class="btn primary" id="routineSaveBtn">+ 루틴 등록</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>내 루틴</h2>
+              <span class="muted small" id="routineCount"></span>
+            </div>
+            <ul class="routine-list" id="routineList"></ul>
+          </div>
+        </section>
+      </main>
+
+      <aside class="side-col">
+        <!-- 진행 중인 프로젝트: 월간에서 가장 위 -->
+        <div class="card projects-card">
+          <h2>진행 중인 프로젝트</h2>
+          <div class="tabs mini" role="tablist" aria-label="프로젝트 카테고리">
+            <button type="button" role="tab" class="tab is-active" id="ptab-work" aria-selected="true" data-cat="work">일·제품</button>
+            <button type="button" role="tab" class="tab" id="ptab-personal" aria-selected="false" data-cat="personal" tabindex="-1">개인</button>
+          </div>
+          <ul class="project-list" id="projectList"></ul>
+          <form id="projectForm" class="inline-add">
+            <input type="text" id="projectInput" placeholder="프로젝트 이름" maxlength="60" autocomplete="off" aria-label="프로젝트 추가">
+            <button type="submit" class="btn primary small">+ 추가</button>
+          </form>
+        </div>
+
+        <!-- 오늘 한눈에 -->
+        <div class="card glance-card">
+          <h2>오늘 한눈에</h2>
+          <button type="button" class="glance-item" id="glanceTasks" title="오늘 일 다이어리 열기">
+            <span class="glance-top"><span class="glance-label">오늘 할 일</span><span class="glance-value" id="glanceTasksValue">0 / 0 완료</span></span>
+            <span class="glance-bar"><span id="glanceTasksBar"></span></span>
+          </button>
+          <button type="button" class="glance-item" id="glanceNotes" title="오늘 기록 보기">
+            <span class="glance-top"><span class="glance-label">오늘 기록</span><span class="glance-value" id="glanceNotesValue">0개</span></span>
+            <span class="glance-sub" id="glanceNotesSub">첫 기록을 남겨보세요</span>
+          </button>
+          <button type="button" class="glance-item" id="glanceEvent" title="달력에서 보기">
+            <span class="glance-top"><span class="glance-label">다가오는 기념일·일정</span><span class="glance-value" id="glanceEventValue">없음</span></span>
+            <span class="glance-sub" id="glanceEventSub">달력의 + 로 남겨두세요</span>
+          </button>
+        </div>
+
+        <div class="card tint">
+          <h2>🧭 오늘의 기준</h2>
+          <p>계획이 무너져도 괜찮아요.</p>
+          <p>지금 할 수 있는 가장 작은 한 가지를 고르세요.</p>
+          <p class="emph" id="dailyEmph">10분만 해도 충분해요.</p>
+          <p class="muted small">체크 0개인 날도 실패가 아니라 다음 시작점이에요.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- 기념일·일정 팝업 -->
+  <div class="modal" id="eventModal" hidden>
+    <div class="modal-backdrop" id="eventModalBackdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="eventModalTitle">기념일·일정</h2>
+          <p class="muted small" id="eventsDateLabel"></p>
+        </div>
+        <button type="button" class="btn ghost icon modal-close" id="eventModalClose" aria-label="닫기">×</button>
+      </div>
+
+      <form class="event-form" id="eventForm">
+        <div class="form-row">
+          <label class="field">
+            <span>종류</span>
+            <select id="eventKind">
+              <option value="anniversary">기념일</option>
+              <option value="schedule">일정</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="field">
+            <span>시작 날짜</span>
+            <input type="date" id="eventDate">
+          </label>
+          <label class="field">
+            <span>종료 날짜 (여러 날이면)</span>
+            <input type="date" id="eventEndDate">
+          </label>
+        </div>
+        <label class="field">
+          <span>제목</span>
+          <input type="text" id="eventTitle" placeholder="예: 결혼기념일, 병원 예약, 출장" maxlength="80" autocomplete="off">
+        </label>
+        <label class="check">
+          <input type="checkbox" id="eventRepeat"> 매년 반복 표시
+        </label>
+        <p class="form-error small" id="eventFormError" role="alert" hidden></p>
+        <div class="form-actions">
+          <button type="button" class="btn ghost" id="eventCancelBtn">취소</button>
+          <button type="submit" class="btn primary" id="eventSaveBtn">저장</button>
+        </div>
+      </form>
+
+      <div class="modal-list">
+        <div class="modal-list-head">
+          <span class="muted small" id="eventListTitle">이 날짜의 항목</span>
+          <button type="button" class="btn link" id="addEventBtn" hidden>+ 새 항목으로</button>
+        </div>
+        <ul class="event-list" id="eventList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 로고 크게 보기 -->
+  <div class="lightbox" id="logoLightbox" role="dialog" aria-modal="true" aria-label="로고 크게 보기" hidden>
+    <img id="lightboxImg" src="assets/logo-1-full.png" alt="오늘의 로고 사진">
+    <p class="lightbox-hint">아무 곳이나 누르면 닫혀요</p>
+  </div>
+
+  <!-- 파티 모드: 빠른 기록에 "파티파티"라고 적으면 켜지고, "그만!!!"이라고 적으면 꺼진다 -->
+  <div class="party-layer" id="partyLayer" aria-hidden="true" hidden>
+    <div class="party-strobe"></div>
+    <div class="party-light l1"></div>
+    <div class="party-light l2"></div>
+    <div class="party-light l3"></div>
+    <div class="party-light l4"></div>
+    <div class="party-lasers"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="party-ball">🪩</div>
+    <div class="party-sign">PARTY PARTY <small>‘그만!!!’이라고 적으면 끝나요</small></div>
+    <div class="party-emoji e1">🎉</div><div class="party-emoji e2">💃</div><div class="party-emoji e3">🕺</div><div class="party-emoji e4">🎶</div><div class="party-emoji e5">✨</div><div class="party-emoji e6">🍾</div>
+    <video class="party-cat cat-video" id="partyVideo" src="assets/party/cat-dance.mp4" muted loop playsinline preload="none"></video>
+    <img class="party-cat cat-gif" id="partyGif" alt="" data-src="assets/party/cat-dance.gif">
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="merge.js?v=__V__"></script>
+  <script src="app.js?v=__V__"></script>
+</body>
+</html>

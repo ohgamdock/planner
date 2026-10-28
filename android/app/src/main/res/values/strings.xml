@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">계.. 획..? 비슷한 걸 세워보려고 합니다.</string>
+    <string name="title_activity_main">계.. 획..? 비슷한 걸 세워보려고 합니다.</string>
+    <string name="package_name">com.osense.diary</string>
+    <string name="custom_url_scheme">com.osense.diary</string>
+</resources>

@@ -1,0 +1,18 @@
+{
+  "appId": "com.osense.diary",
+  "appName": "계.. 획..? 비슷한 걸 세워보려고 합니다.",
+  "webDir": "mobile/www",
+  "server": {
+    "url": "https://planner.34-50-58-33.sslip.io",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#F5F4EF",
+    "buildOptions": {
+      "keystorePath": "mobile/planner-release.jks",
+      "keystoreAlias": "planner"
+    }
+  }
+}

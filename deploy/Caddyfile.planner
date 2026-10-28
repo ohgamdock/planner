@@ -1,0 +1,9 @@
+# 서재 앱 Caddyfile 끝에 덧붙일 블록. 주소: https://planner.34-50-58-33.sslip.io
+# (sslip.io 는 이름 안의 IP로 바로 풀리고, Caddy 가 Let's Encrypt 인증서를 자동 발급)
+planner.34-50-58-33.sslip.io {
+	encode gzip
+	reverse_proxy planner:4310 {
+		# 실시간 알림(SSE)이 끊기지 않게 버퍼링 끔
+		flush_interval -1
+	}
+}

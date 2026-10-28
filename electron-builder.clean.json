@@ -1,0 +1,51 @@
+{
+  "appId": "com.osense.diary",
+  "productName": "계.. 획.. 비슷한 걸 세워보려고 합니다",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "electron/**",
+    "index.html",
+    "style.css",
+    "app.js",
+    "merge.js",
+    "server.js",
+    "manifest.webmanifest",
+    "sw.js",
+    "assets/*.png",
+    "package.json",
+    "assets/party/*",
+    "assets/*.ico"
+  ],
+  "win": {
+    "icon": "assets/icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "artifactName": "계획비슷한걸-다이어리-새사용자용-설치-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "shortcutName": "계.. 획.. 비슷한 걸 세워보려고 합니다"
+  },
+  "portable": {
+    "artifactName": "계획비슷한걸-다이어리-새사용자용-바로실행-${version}.${ext}"
+  },
+  "extraMetadata": {
+    "clean": true
+  }
+}
