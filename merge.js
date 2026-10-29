@@ -132,8 +132,9 @@
 
   // 마인드맵: 키워드 노드(위치·글)와 연결선. 통째로 최신 쪽을 쓴다.
   function normMap(m) {
-    var out = { nodes: [], edges: [], updatedAt: 0 };
+    var out = { on: false, nodes: [], edges: [], updatedAt: 0 };
     if (!isObj(m)) return out;
+    out.on = !!m.on;
     var ids = {};
     if (Array.isArray(m.nodes)) m.nodes.forEach(function (n) {
       if (!isObj(n)) return;
@@ -390,7 +391,12 @@
       next: newerOne.next || older.next || '',
       status: newerOne.status || 'active',
       memo: newerOne.memo || older.memo || '',
-      map: (newerOne.map && newerOne.map.nodes && newerOne.map.nodes.length) ? newerOne.map : (older.map || normMap(null)),
+      map: (function () {
+        var nm = normMap(newerOne.map), om = normMap(older.map);
+        var pick = (nm.updatedAt || 0) >= (om.updatedAt || 0) ? nm : om;
+        if (!pick.nodes.length && (nm.nodes.length || om.nodes.length)) pick = nm.nodes.length ? nm : om;
+        return pick;
+      })(),
       tasks: mergeList(x.tasks || [], y.tasks || [], deleted, function (t) { return t.text.toLowerCase(); }, combineTask).sort(byCreated),
       log: mergeList(x.log || [], y.log || [], deleted, function (l) { return l.text + '|' + str(l.date).slice(0, 10); }, combineNote).sort(byDateDesc),
       check: mergeCheck(x.check, y.check, newerOne.check),

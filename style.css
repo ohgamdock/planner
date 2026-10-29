@@ -1137,3 +1137,10 @@ body.party .map-node { background: rgba(30,18,52,.95); color: #fff; border-color
 body.desktop .topbar, body.desktop.view-day .topbar { position: fixed; top: 0; left: 0; right: 0; width: auto; margin: 0; z-index: 25; padding-left: 14px; }
 body.desktop .app { padding-top: 56px; }
 body.desktop .sync-panel { position: fixed; top: 52px; right: 16px; }
+
+/* 날짜 옆 오늘의 각오 · 접기 화살표 · 마인드맵 머리 */
+.day-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.resolution-line { font-size: 15px; font-weight: 700; color: var(--green-deep); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.day-head .btn.link { align-self: flex-start; padding-left: 0; opacity: 1; }
+.fold-btn { font-size: 18px; width: 30px; min-height: 30px; padding: 0; color: var(--muted); opacity: 1; }
+.map-head-left { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; }

@@ -144,7 +144,12 @@
         <!-- 일 다이어리 -->
         <section id="panel-day" role="tabpanel" aria-labelledby="tab-day" class="view" hidden>
           <div class="card day-bar">
-            <h2 class="day-title" id="dayTitle"></h2>
+            <div class="day-head">
+              <h2 class="day-title" id="dayTitle"></h2>
+              <!-- 오늘의 각오: 하루 처음 열 때 적고, 그날은 고치거나 지울 수 없다 -->
+              <p class="resolution-line" id="resolutionText" hidden></p>
+              <button type="button" class="btn link" id="resolutionBtn" hidden>🔥 오늘의 각오 적기</button>
+            </div>
             <div class="cal-nav">
               <button type="button" class="btn ghost" id="prevDayBtn">‹ 전날</button>
               <button type="button" class="btn ghost" id="dayTodayBtn">오늘</button>
@@ -330,11 +335,19 @@
                 <!-- 마인드맵: 키워드를 놓고 선으로 잇는 자유 캔버스 -->
                 <div class="card pd-section pd-map">
                   <div class="card-head">
-                    <div>
-                      <h3>🧠 마인드맵</h3>
-                      <p class="muted small">빈 곳을 두 번 누르면 키워드 추가 · 끌어서 이동 · 두 번 누르면 글 수정</p>
+                    <div class="map-head-left">
+                      <button type="button" class="btn link fold-btn" id="mapFoldBtn" aria-expanded="true" aria-label="마인드맵 접기/펴기">▾</button>
+                      <div>
+                        <h3>🧠 마인드맵</h3>
+                        <p class="muted small" id="mapDesc">빈 곳을 두 번 누르면 키워드 추가 · 끌어서 이동 · 두 번 누르면 글 수정</p>
+                      </div>
+                      <label class="switch" title="이 프로젝트에서 마인드맵 사용">
+                        <input type="checkbox" id="mapOn" aria-label="마인드맵 사용">
+                        <span class="switch-track" aria-hidden="true"></span>
+                        <span class="switch-text">사용</span>
+                      </label>
                     </div>
-                    <div class="map-tools">
+                    <div class="map-tools" id="mapTools">
                       <button type="button" class="btn ghost small" id="mapAddBtn">+ 키워드</button>
                       <button type="button" class="btn ghost small" id="mapLinkBtn" aria-pressed="false">🔗 연결</button>
                       <button type="button" class="btn ghost small" id="mapColorBtn">🎨 색</button>
@@ -445,18 +458,11 @@
               <h2>이날의 기록</h2>
               <p class="muted small" id="notesSub">글과 사진이 시간순으로 쌓여요</p>
             </div>
-            <button type="button" class="btn ghost small" id="notesToggle" aria-expanded="true" aria-controls="noteList">접기</button>
+            <button type="button" class="btn link fold-btn" id="notesToggle" aria-expanded="true" aria-controls="noteList" aria-label="접기/펴기">▾</button>
           </div>
           <ul class="note-list" id="noteList"></ul>
         </div>
 
-        <!-- 오늘의 각오: 하루 처음 열 때 적고, 그날은 고치거나 지울 수 없다 -->
-        <div class="card tint resolution-card" id="resolutionCard">
-          <h2>🔥 오늘의 각오</h2>
-          <p class="resolution-text" id="resolutionText"></p>
-          <p class="muted small" id="resolutionSub"></p>
-          <button type="button" class="btn primary small" id="resolutionBtn" hidden>오늘의 각오 적기</button>
-        </div>
       </aside>
     </div>
   </div>

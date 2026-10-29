@@ -291,13 +291,12 @@
   var RESOLUTION_LATER_KEY = 'planner.v1.resolutionLater';
   function resolutionOf(key) { return data.resolutions && data.resolutions[key] ? data.resolutions[key].text : ''; }
   function renderResolution() {
-    var tKey = todayKey();
-    var text = resolutionOf(tKey);
-    $('resolutionText').textContent = text;
+    // 일 다이어리 날짜 옆: 보고 있는 날짜의 각오 (오늘이고 아직 없으면 적기 버튼)
+    var text = resolutionOf(selectedKey);
+    $('resolutionText').textContent = text ? '🔥 ' + text : '';
     $('resolutionText').hidden = !text;
-    if (text && !$('resolutionModal').hidden) $('resolutionModal').hidden = true;
-    $('resolutionBtn').hidden = !!text;
-    $('resolutionSub').textContent = text ? fmtLong(tKey) + ' · 오늘은 이 한마디로.' : '오늘 하루를 시작하는 한마디를 남겨 보세요.';
+    $('resolutionBtn').hidden = !!text || selectedKey !== todayKey();
+    if (resolutionOf(todayKey()) && !$('resolutionModal').hidden) $('resolutionModal').hidden = true;
   }
   function openResolutionModal() {
     $('resolutionModalDate').textContent = fmtLong(todayKey());
@@ -835,6 +834,7 @@
   // ---------------------------------------------------------------- 일 다이어리
   function renderDay() {
     $('dayTitle').textContent = fmtLong(selectedKey);
+    renderResolution();
     renderTasks();
     renderNotes();
   }
@@ -2167,7 +2167,7 @@
     try { folded = localStorage.getItem(NOTES_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
     $('noteList').hidden = folded;
     $('notesCard').classList.toggle('is-folded', folded);
-    $('notesToggle').textContent = folded ? '펴기' : '접기';
+    $('notesToggle').textContent = folded ? '▸' : '▾';
     $('notesToggle').setAttribute('aria-expanded', folded ? 'false' : 'true');
     var n = notesOf(selectedKey).length;
     $('notesSub').textContent = folded ? (n ? n + '개의 기록이 접혀 있어요' : '기록 없음') : '글과 사진이 시간순으로 쌓여요';
@@ -2190,12 +2190,35 @@
     return p.map;
   }
   function mapNode(p, id) { return mapOf(p).nodes.filter(function (n) { return n.id === id; })[0] || null; }
+  // 선택 표시만 바꾼다 (목록을 다시 그리면 두 번 누르기가 끊긴다)
+  function selectMapNode(id) {
+    mapState.selected = id;
+    $('mapNodes').querySelectorAll('.map-node').forEach(function (d) { d.classList.toggle('is-selected', d.dataset.id === id); });
+  }
+  var MAP_FOLD_KEY = 'planner.v1.mapFolded';
+  function applyMapFold(p) {
+    var m = mapOf(p);
+    var folded = false;
+    try { folded = localStorage.getItem(MAP_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
+    var showBody = m.on && !folded;
+    $('mapOn').checked = !!m.on;
+    $('mapWrap').hidden = !showBody;
+    $('mapHint').hidden = !showBody;
+    $('mapTools').hidden = !showBody;
+    $('mapFoldBtn').hidden = !m.on;
+    $('mapFoldBtn').textContent = folded ? '▸' : '▾';
+    $('mapFoldBtn').setAttribute('aria-expanded', folded ? 'false' : 'true');
+    $('mapDesc').textContent = !m.on ? '키워드를 놓고 선으로 잇는 생각 지도. 쓰고 싶을 때 켜세요.'
+      : folded ? (m.nodes.length ? '키워드 ' + m.nodes.length + '개 · 접혀 있어요' : '접혀 있어요')
+      : '빈 곳을 두 번 누르면 키워드 추가 · 끌어서 이동 · 두 번 누르면 글 수정';
+  }
   function saveMap(p) { mapOf(p).updatedAt = now(); touchProject(p); save(); }
   function currentMapProject() { var f = selectedProjectId ? findProject(selectedProjectId) : null; return f ? f.p : null; }
   function nodeSize(elm) { return { w: elm.offsetWidth || 90, h: elm.offsetHeight || 34 }; }
   function renderMap(p) {
     var m = mapOf(p);
     if (mapState.projectId !== p.id) { mapState.selected = null; mapState.linking = false; mapState.projectId = p.id; }
+    applyMapFold(p);
     var wrap = $('mapNodes');
     wrap.innerHTML = '';
     var canvas = $('mapCanvas');
@@ -2303,8 +2326,7 @@
         toast(exists ? '이미 이어져 있어요.' : '이었어요.');
         return;
       }
-      mapState.selected = id;
-      renderMap(p);
+      selectMapNode(id);
     });
     // 두 번 누르기 → 글 수정
     nodes.addEventListener('dblclick', function (e) {
@@ -2319,6 +2341,8 @@
       var d = e.target.closest('.map-node'); if (!d) return;
       var p = currentMapProject(); if (!p) return;
       var n = mapNode(p, d.dataset.id); if (!n) return;
+      // 누르는 순간 선택 (다시 그리지 않아야 두 번 누르기가 끊기지 않는다)
+      if (!mapState.linking) selectMapNode(n.id);
       mapState.drag = { id: n.id, startX: e.clientX, startY: e.clientY, ox: n.x, oy: n.y, moved: false, el: d };
       d.setPointerCapture(e.pointerId);
     });
@@ -2347,6 +2371,17 @@
       var p = currentMapProject(); if (!p) return;
       mapOf(p).edges.splice(Number(line.dataset.index), 1);
       saveMap(p); renderMap(p);
+    });
+    $('mapOn').addEventListener('change', function () {
+      var p = currentMapProject(); if (!p) return;
+      mapOf(p).on = this.checked;
+      saveMap(p); renderMap(p);
+    });
+    $('mapFoldBtn').addEventListener('click', function () {
+      var p = currentMapProject(); if (!p) return;
+      var folded = $('mapFoldBtn').textContent === '▾';
+      try { if (folded) localStorage.setItem(MAP_FOLD_KEY, '1'); else localStorage.removeItem(MAP_FOLD_KEY); } catch (e) { /* 무시 */ }
+      renderMap(p);
     });
     $('mapLinkBtn').addEventListener('click', function () {
       var p = currentMapProject(); if (!p) return;
