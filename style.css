@@ -1229,3 +1229,9 @@ body.desktop .topbar-left { min-width: 0; max-width: 100%; }
 /* 탭을 창 전체의 정중앙에: 창 버튼 자리는 오른쪽 칸 안쪽 여백으로 */
 body.desktop .topbar, body.desktop.view-day .topbar { padding-right: 0; }
 body.desktop .topbar-right { padding-right: 150px; }
+/* 프로젝트 탭: 상세(큰 칸)를 왼쪽, 목록(작은 칸)을 오른쪽에 */
+@media (min-width: 901px) {
+  .projects-layout { grid-template-columns: minmax(0, 1fr) 340px; }
+  .projects-list-card { order: 2; }
+  .project-detail { order: 1; }
+}
