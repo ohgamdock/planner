@@ -1235,3 +1235,54 @@ body.desktop .topbar-right { padding-right: 150px; }
   .projects-list-card { order: 2; }
   .project-detail { order: 1; }
 }
+
+/* ================= 설정창 스크롤 · 테마 선택 ================= */
+.sync-panel { max-height: calc(100vh - 70px); overflow-y: auto; }
+body.desktop .sync-panel { max-height: calc(100vh - 64px); }
+.sync-theme { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.theme-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.theme-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border: 1.5px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); cursor: pointer; font-size: 13px; }
+.theme-btn .sw { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, var(--sw1) 50%, var(--sw2) 50%); border: 1px solid rgba(0,0,0,.12); }
+.theme-btn.is-active { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-soft); font-weight: 700; }
+
+/* 테마 색 (설정에서 고름, 이 기기에서만 적용) */
+html[data-theme="forest"] { --bg: #E9EFE4; --card: #FFFFFF; --line: #D2DCCB; --green: #2F5D3A; --green-deep: #244A2E; --green-soft: #DCEAD9; --reset: #EAE4C8; --today-dot: #C97E2C; }
+html[data-theme="ocean"] { --bg: #EAF1F7; --card: #FFFFFF; --line: #D0DCE7; --green: #2F5F8A; --green-deep: #244B6E; --green-soft: #DCE8F3; --reset: #E9E6D6; --today-dot: #D98A48; --text: #152130; --muted: #5A6A7A; }
+html[data-theme="sunset"] { --bg: #FBEFE6; --card: #FFFDFB; --line: #EBD6C8; --green: #C25A3C; --green-deep: #A3472D; --green-soft: #F8DED2; --reset: #F5E7C9; --today-dot: #D9A233; --text: #2E1F18; --muted: #7B655B; }
+html[data-theme="lavender"] { --bg: #F1EDF8; --card: #FFFFFF; --line: #DED6EC; --green: #6A4FB3; --green-deep: #553E93; --green-soft: #E8E1F6; --reset: #F0E6D8; --today-dot: #D77A4C; --text: #241C33; --muted: #6D6482; }
+html[data-theme="mono"] { --bg: #F2F2F2; --card: #FFFFFF; --line: #DADADA; --green: #2A2A2A; --green-deep: #111111; --green-soft: #E6E6E6; --reset: #E8E2D4; --today-dot: #8A8A8A; --text: #111111; --muted: #666666; }
+html[data-theme="dark"] { --bg: #1B1F23; --card: #262B31; --line: #3A4149; --green: #7FB69A; --green-deep: #5E9A7D; --green-soft: #2F3F38; --reset: #4A3F2B; --today-dot: #E0A060; --danger: #E07B6E; --text: #ECEEE9; --muted: #A2AAA4;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -18px rgba(0,0,0,.6); }
+html[data-theme="dark"] body { background: var(--bg); }
+html[data-theme="dark"] .day-cell, html[data-theme="dark"] .task-item, html[data-theme="dark"] .glance-item, html[data-theme="dark"] .project-item, html[data-theme="dark"] .note-item, html[data-theme="dark"] .routine-item, html[data-theme="dark"] .pl-item, html[data-theme="dark"] .agenda-item { background: #2C3238; border-color: #3A4149; }
+html[data-theme="dark"] .day-cell { box-shadow: none; }
+html[data-theme="dark"] .day-cell.is-today { background: #2F3F38; border-color: #4F6B5C; }
+html[data-theme="dark"] .weekdays { background: #22272C; }
+html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea { background: #1F2429; color: var(--text); border-color: #3A4149; }
+html[data-theme="dark"] .btn { background: #2C3238; color: var(--text); border-color: #3A4149; }
+html[data-theme="dark"] .btn:hover { background: #343B42; }
+html[data-theme="dark"] .btn.primary { background: linear-gradient(180deg, #7FB69A, #5E9A7D); color: #10201A; border-color: transparent; }
+html[data-theme="dark"] .btn.reset { background: #4A3F2B; color: #F0DDB0; }
+html[data-theme="dark"] .tabs { background: #22272C; }
+html[data-theme="dark"] .tab.is-active { background: #343B42; color: #CFEBDC; }
+html[data-theme="dark"] .card.tint { background: linear-gradient(160deg, #2A3430, #22302A); border-color: #3A4A42; }
+html[data-theme="dark"] .pd-hero, html[data-theme="dark"] .day-bar { background: var(--card); }
+html[data-theme="dark"] .day-ev.anniversary { background: #4A3230; color: #F3C9BE; }
+html[data-theme="dark"] .day-ev.schedule { background: #2F3F38; color: #BDE6CF; }
+html[data-theme="dark"] .status-badge { background: #2F3F38; color: #BDE6CF; }
+html[data-theme="dark"] .map-wrap { background: radial-gradient(circle, #3A4149 1px, transparent 1.2px) 0 0 / 22px 22px, #1F2429; }
+html[data-theme="dark"] .map-node { background: #2C3238; color: var(--text); border-color: #4F6B5C; }
+html[data-theme="dark"] .modal-card, html[data-theme="dark"] .sync-panel { background: var(--card); }
+html[data-theme="dark"] .theme-btn { background: #2C3238; }
+html[data-theme="dark"] .pd-ring { box-shadow: 0 0 0 6px #2F3F38; }
+html[data-theme="dark"] .pd-ring::before { background: var(--card); }
+html[data-theme="dark"] .progress, html[data-theme="dark"] .glance-bar { background: #3A4149; }
+html[data-theme="dark"] .badge-proj { background: #2E3A48; color: #BBD3F0; }
+html[data-theme="dark"] .badge-routine { background: #2E3A48; color: #BBD3F0; }
+html[data-theme="dark"] .ck-cell { background: #2C3238; border-color: #4A525B; color: var(--text); }
+html[data-theme="dark"] .ck-cell.is-future { background: #22272C; }
+html[data-theme="dark"] body.desktop .topbar { background: #1B1F23; border-bottom-color: #3A4149; }
+html[data-theme="dark"] .toast { background: #ECEEE9; color: #1B1F23; }
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #4A525B; background-clip: padding-box; border-color: #1B1F23; }
+@media (max-width: 760px) { html[data-theme="dark"] .day-cell:nth-child(7n+6), html[data-theme="dark"] .day-cell:nth-child(7n+7) { background: #2A3036; } }
+body.desktop .topbar { background: var(--bg); border-bottom-color: var(--line); }

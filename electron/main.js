@@ -310,6 +310,10 @@ app.whenReady().then(async () => {
   // 화면에서 보내는 요청: 아침 알림 띄우기 / 창 앞으로
   ipcMain.on('planner:notify', (e, msg) => { if (msg && msg.title) showNotification(msg.title, msg.body || ''); });
   ipcMain.on('planner:show', showWindow);
+  ipcMain.on('planner:bar', (e, m) => {
+    if (!mainWindow || !m || !/^#[0-9a-fA-F]{6}$/.test(m.color) || !/^#[0-9a-fA-F]{6}$/.test(m.symbolColor)) return;
+    try { mainWindow.setTitleBarOverlay({ color: m.color, symbolColor: m.symbolColor, height: 44 }); } catch (err) { /* 무시 */ }
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

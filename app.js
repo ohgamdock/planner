@@ -2425,6 +2425,36 @@
     wrap.addEventListener('scroll', function () { /* 선은 캔버스 좌표라 그대로 */ });
   }
 
+  // ---------------------------------------------------------------- 테마 (이 기기에서만 저장)
+  var THEME_KEY = 'planner.v1.theme';
+  function applyTheme(name) {
+    name = name || '';
+    if (name) document.documentElement.setAttribute('data-theme', name); else document.documentElement.removeAttribute('data-theme');
+    document.querySelectorAll('.theme-btn').forEach(function (b) {
+      var on = (b.dataset.theme || '') === name;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    var cs = getComputedStyle(document.documentElement);
+    var bg = cs.getPropertyValue('--bg').trim() || '#F5F4EF';
+    var tx = cs.getPropertyValue('--text').trim() || '#1E2924';
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', bg);
+    if (window.plannerDesktop && window.plannerDesktop.setBar) window.plannerDesktop.setBar(bg, tx);
+  }
+  function bindTheme() {
+    var saved = '';
+    try { saved = localStorage.getItem(THEME_KEY) || ''; } catch (e) { /* 무시 */ }
+    applyTheme(saved);
+    $('themeList').addEventListener('click', function (e) {
+      var b = e.target.closest('.theme-btn'); if (!b) return;
+      var name = b.dataset.theme || '';
+      try { if (name) localStorage.setItem(THEME_KEY, name); else localStorage.removeItem(THEME_KEY); } catch (err) { /* 무시 */ }
+      applyTheme(name);
+      toast(b.textContent.trim() + ' 테마로 바꿨어요.');
+    });
+  }
+
   // ---------------------------------------------------------------- 다이어리 이름
   var DEFAULT_TITLE = '계.. 획..? 비슷한 걸 세워보려고 합니다.';
   function diaryTitle() { return (data.meta && data.meta.title) || DEFAULT_TITLE; }
@@ -2662,6 +2692,7 @@
     bindResolution();
     bindTitle();
     bindMobileNav();
+    bindTheme();
     if (window.plannerDesktop) document.body.classList.add('desktop');
 
     // 달력

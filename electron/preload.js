@@ -4,5 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('plannerDesktop', {
   notify: (title, body) => ipcRenderer.send('planner:notify', { title: String(title || ''), body: String(body || '') }),
-  show: () => ipcRenderer.send('planner:show')
+  show: () => ipcRenderer.send('planner:show'),
+  // 테마에 맞춰 창 버튼 영역 색 바꾸기
+  setBar: (color, symbolColor) => ipcRenderer.send('planner:bar', { color: String(color || ''), symbolColor: String(symbolColor || '') })
 });
