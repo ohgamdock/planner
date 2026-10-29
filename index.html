@@ -146,7 +146,9 @@
           <div class="card day-bar">
             <div class="day-head">
               <h2 class="day-title" id="dayTitle"></h2>
-              <!-- 오늘의 각오: 하루 처음 열 때 적고, 그날은 고치거나 지울 수 없다 -->
+            </div>
+            <!-- 오늘의 각오: 날짜와 버튼 사이 가운데 (하루 처음 열 때 적고, 그날은 고치거나 지울 수 없다) -->
+            <div class="resolution-slot">
               <p class="resolution-line" id="resolutionText" hidden></p>
               <button type="button" class="btn link" id="resolutionBtn" hidden>🔥 오늘의 각오 적기</button>
             </div>
@@ -336,22 +338,24 @@
                 <div class="card pd-section pd-map">
                   <div class="card-head">
                     <div class="map-head-left">
-                      <button type="button" class="btn link fold-btn" id="mapFoldBtn" aria-expanded="true" aria-label="마인드맵 접기/펴기">▾</button>
                       <div>
                         <h3>🧠 마인드맵</h3>
                         <p class="muted small" id="mapDesc">빈 곳을 두 번 누르면 키워드 추가 · 끌어서 이동 · 두 번 누르면 글 수정</p>
                       </div>
-                      <label class="switch" title="이 프로젝트에서 마인드맵 사용">
-                        <input type="checkbox" id="mapOn" aria-label="마인드맵 사용">
-                        <span class="switch-track" aria-hidden="true"></span>
-                        <span class="switch-text">사용</span>
-                      </label>
                     </div>
                     <div class="map-tools" id="mapTools">
                       <button type="button" class="btn ghost small" id="mapAddBtn">+ 키워드</button>
                       <button type="button" class="btn ghost small" id="mapLinkBtn" aria-pressed="false">🔗 연결</button>
                       <button type="button" class="btn ghost small" id="mapColorBtn">🎨 색</button>
                       <button type="button" class="btn link danger" id="mapDeleteBtn">삭제</button>
+                    </div>
+                    <div class="map-end">
+                      <label class="switch" title="이 프로젝트에서 마인드맵 사용">
+                        <input type="checkbox" id="mapOn" aria-label="마인드맵 사용">
+                        <span class="switch-track" aria-hidden="true"></span>
+                        <span class="switch-text">사용</span>
+                      </label>
+                      <button type="button" class="btn link fold-btn" id="mapFoldBtn" aria-expanded="true" aria-label="마인드맵 접기/펴기">▾</button>
                     </div>
                   </div>
                   <div class="map-wrap" id="mapWrap">

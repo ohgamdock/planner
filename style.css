@@ -1165,3 +1165,22 @@ body.desktop .topbar-right { margin-left: auto; }
   .ck-stats { justify-content: space-around; }
   .project-detail, #projectBody, .pd-section { max-width: 100%; overflow-x: hidden; }
 }
+
+/* 탭은 상단바 정중앙 · 각오는 날짜와 버튼 사이 가운데 · 접기 화살표 크게 · 마인드맵 토글→화살표 맨 오른쪽 */
+body.desktop .topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+body.desktop .topbar-left { justify-self: start; }
+body.desktop .topbar .tabs { justify-self: center; margin: 0; }
+body.desktop .topbar-right { justify-self: end; margin: 0; }
+.day-bar { flex-wrap: nowrap; }
+.day-head { flex: 0 0 auto; flex-direction: column; align-items: flex-start; gap: 2px; }
+.day-bar .resolution-slot { flex: 1 1 auto; min-width: 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.day-bar .resolution-slot .resolution-line { flex: 0 0 auto; font-size: 16px; }
+.fold-btn, .fold-btn.btn.link { font-size: 40px; width: 52px; min-height: 52px; line-height: 1; color: var(--green); font-weight: 700; }
+.map-head-left { order: 0; }
+.map-tools { order: 1; }
+.map-end { order: 2; display: flex; align-items: center; gap: 10px; margin-left: auto; }
+@media (max-width: 760px) {
+  .day-bar { flex-wrap: wrap; }
+  .day-bar .resolution-slot { flex: 1 1 100%; }
+  .fold-btn, .fold-btn.btn.link { font-size: 34px; width: 46px; min-height: 46px; }
+}
