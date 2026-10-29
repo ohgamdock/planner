@@ -1070,3 +1070,11 @@ body.task-dragging .project-item { border-style: dashed; border-color: #9FB8A8; 
   .day-more { font-size: 11px; color: var(--muted); padding-left: 2px; }
   .day-dots { justify-content: center; }
 }
+
+/* 📁 프로젝트 고르기 목록은 할 일 아래 줄에 */
+.task-item:has(.proj-picker) { flex-wrap: wrap; }
+.proj-picker .btn { white-space: nowrap; }
+/* 이날의 기록: 일 다이어리에서만 오른쪽 열, 오늘의 기준 위 */
+.notes-card { display: none; }
+body.view-diary .notes-card { display: block; order: -2; }
+body.view-diary .side-col .projects-card { order: 0; }

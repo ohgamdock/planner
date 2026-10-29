@@ -192,15 +192,6 @@
             </form>
           </div>
 
-          <div class="card">
-            <div class="card-head">
-              <div>
-                <h2>이날의 기록</h2>
-                <p class="muted small">글과 사진이 시간순으로 쌓여요</p>
-              </div>
-            </div>
-            <ul class="note-list" id="noteList"></ul>
-          </div>
         </section>
 
         <!-- 프로젝트: 프로젝트별 상태·날짜별 체크·할 일·메모·진행 기록 -->
@@ -414,6 +405,17 @@
             <span class="glance-top"><span class="glance-label">다가오는 기념일·일정</span><span class="glance-value" id="glanceEventValue">없음</span></span>
             <span class="glance-sub" id="glanceEventSub">달력의 + 로 남겨두세요</span>
           </button>
+        </div>
+
+        <!-- 이날의 기록: 일 다이어리에서만, 오늘의 기준 위에 -->
+        <div class="card notes-card">
+          <div class="card-head">
+            <div>
+              <h2>이날의 기록</h2>
+              <p class="muted small">글과 사진이 시간순으로 쌓여요</p>
+            </div>
+          </div>
+          <ul class="note-list" id="noteList"></ul>
         </div>
 
         <div class="card tint">

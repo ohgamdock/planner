@@ -459,6 +459,7 @@
     // 월간: 화면에 꽉 차는 앱 셸 / 나머지: 페이지 전체 스크롤
     document.body.classList.toggle('view-day', view !== 'month');
     document.body.classList.toggle('view-projects', view === 'projects');
+    document.body.classList.toggle('view-diary', view === 'day');
     document.body.classList.toggle('pp-detail', view === 'projects' && projectPage === 'detail');
     if (view === 'month') {
       var d = parseKey(selectedKey);

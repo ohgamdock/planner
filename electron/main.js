@@ -22,7 +22,8 @@ const fs = require('fs');
 
 // 윈도우 알림 센터에 앱 이름이 제대로 보이도록 (설치판만: 설치할 때 같은 ID의 바로가기가 만들어진다.
 // 개발 실행에서 이 ID를 쓰면 작업 표시줄이 창 아이콘 대신 electron.exe 아이콘을 보여준다.)
-if (app.isPackaged) app.setAppUserModelId('com.osense.diary');
+// 개발 실행에서도 같은 ID를 쓰고, 시작 메뉴에 같은 ID를 가진 바로가기를 만들어 둔다(작업 표시줄 아이콘·알림용).
+app.setAppUserModelId('com.osense.diary');
 let tray = null;
 let quitting = false;
 
