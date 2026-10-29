@@ -1226,3 +1226,6 @@ body.desktop .topbar-left { min-width: 0; max-width: 100%; }
 .map-tools { margin-left: auto; }
 .map-end { margin-left: 14px; }
 @media (max-width: 760px) { .map-tools { margin-left: 0; width: auto; } .map-end { margin-left: auto; } }
+/* 탭을 창 전체의 정중앙에: 창 버튼 자리는 오른쪽 칸 안쪽 여백으로 */
+body.desktop .topbar, body.desktop.view-day .topbar { padding-right: 0; }
+body.desktop .topbar-right { padding-right: 150px; }
