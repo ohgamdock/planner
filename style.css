@@ -1144,3 +1144,24 @@ body.desktop .sync-panel { position: fixed; top: 52px; right: 16px; }
 .day-head .btn.link { align-self: flex-start; padding-left: 0; opacity: 1; }
 .fold-btn { font-size: 18px; width: 30px; min-height: 30px; padding: 0; color: var(--muted); opacity: 1; }
 .map-head-left { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; }
+
+/* 탭은 제목 바로 옆(왼쪽)에 · 각오는 날짜 오른쪽 · 화살표 크게 · 휴대폰 프로젝트 머리칸 줄바꿈 */
+body.desktop .topbar-left { flex: 0 0 auto; }
+body.desktop .topbar .tabs { margin-left: 8px; }
+body.desktop .topbar-right { margin-left: auto; }
+.day-head { flex-direction: row; align-items: center; gap: 14px; flex-wrap: wrap; }
+.day-head .resolution-line { flex: 1 1 200px; }
+.fold-btn { font-size: 28px; width: 40px; min-height: 40px; line-height: 1; color: var(--green); }
+@media (max-width: 760px) {
+  .card-head { flex-wrap: wrap; }
+  .card-head > * { min-width: 0; }
+  .map-head-left { flex-wrap: wrap; }
+  .map-tools { width: 100%; justify-content: flex-start; }
+  .pd-map .card-head .switch { margin-left: auto; }
+  .map-wrap { height: 300px; }
+  .pd-hero .pd-head { flex-wrap: wrap; }
+  .pd-title { flex: 1 1 100%; }
+  .ck-top { flex-direction: column; align-items: stretch; }
+  .ck-stats { justify-content: space-around; }
+  .project-detail, #projectBody, .pd-section { max-width: 100%; overflow-x: hidden; }
+}
