@@ -1184,3 +1184,24 @@ body.desktop .topbar-right { justify-self: end; margin: 0; }
   .day-bar .resolution-slot { flex: 1 1 100%; }
   .fold-btn, .fold-btn.btn.link { font-size: 34px; width: 46px; min-height: 46px; }
 }
+
+/* ================= 움직임 효과 ================= */
+.fold-btn { transition: transform .28s cubic-bezier(.2,.8,.3,1.2), color .15s; }
+.fold-btn.is-folded { transform: rotate(-90deg); }
+.note-list, .map-wrap, #mapHint, #mapTools { animation: unfold .26s ease-out; transform-origin: top; }
+@keyframes unfold { from { opacity: 0; transform: translateY(-8px) scaleY(.96); } to { opacity: 1; transform: none; } }
+.view.slide-right { animation: slide-in-right .26s cubic-bezier(.2,.8,.2,1); }
+.view.slide-left { animation: slide-in-left .26s cubic-bezier(.2,.8,.2,1); }
+@keyframes slide-in-right { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes slide-in-left { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+.task-item, .pl-item, .routine-item, .note-item { transition: background .15s, border-color .15s, transform .15s; }
+.task-item.is-done .task-text { transition: color .2s; }
+.project-detail, .projects-list-card { animation: fade-in .22s ease-out; }
+@keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.sync-panel { animation: drop-in .2s ease-out; transform-origin: top right; }
+@keyframes drop-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+.modal-card { animation: pop-in .22s cubic-bezier(.2,.8,.2,1); }
+@keyframes pop-in { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+.map-node { transition: box-shadow .15s, border-color .15s; }
+.sync-title { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) { .view, .fold-btn, .note-list, .map-wrap, .modal-card, .sync-panel { animation: none !important; transition: none !important; } }

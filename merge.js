@@ -307,6 +307,9 @@
     if (isObj(raw.meta)) {
       if (raw.meta.seededPlan) d.meta.seededPlan = true;
       if (raw.meta.seededProjects) d.meta.seededProjects = true;
+      // 다이어리 이름(사용자가 설정에서 바꿈)
+      var title = str(raw.meta.title).trim();
+      if (title) { d.meta.title = title.slice(0, 40); d.meta.titleAt = num(raw.meta.titleAt, 0) || 0; }
     }
     return d;
   }
@@ -496,6 +499,10 @@
 
     if (a.meta.seededPlan || b.meta.seededPlan) out.meta.seededPlan = true;
     if (a.meta.seededProjects || b.meta.seededProjects) out.meta.seededProjects = true;
+    var ta = a.meta.title ? { title: a.meta.title, titleAt: a.meta.titleAt || 0 } : null;
+    var tb = b.meta.title ? { title: b.meta.title, titleAt: b.meta.titleAt || 0 } : null;
+    var tt = (ta && tb) ? (tb.titleAt > ta.titleAt ? tb : ta) : (ta || tb);
+    if (tt) { out.meta.title = tt.title; out.meta.titleAt = tt.titleAt; }
     out.updatedAt = Math.max(a.updatedAt, b.updatedAt);
     return out;
   }

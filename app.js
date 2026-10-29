@@ -499,16 +499,26 @@
 
   // ---------------------------------------------------------------- 탭/뷰
   var VIEWS = ['month', 'day', 'projects', 'routines'];
+  var lastShownView = null;
   function showView(next) {
     view = VIEWS.indexOf(next) >= 0 ? next : 'month';
+    var prevView = lastShownView;
     VIEWS.forEach(function (v) {
       var on = v === view;
       var tab = $('tab-' + v);
       tab.classList.toggle('is-active', on);
       tab.setAttribute('aria-selected', on ? 'true' : 'false');
       tab.tabIndex = on ? 0 : -1;
-      $('panel-' + v).hidden = !on;
+      var panel = $('panel-' + v);
+      panel.hidden = !on;
+      // 화면이 바뀔 때 살짝 밀려 들어오는 효과 (오른쪽 탭으로 가면 오른쪽에서, 왼쪽이면 왼쪽에서)
+      if (on && prevView && prevView !== v) {
+        panel.classList.remove('slide-left', 'slide-right');
+        void panel.offsetWidth;
+        panel.classList.add(VIEWS.indexOf(v) > VIEWS.indexOf(prevView) ? 'slide-right' : 'slide-left');
+      }
     });
+    lastShownView = view;
     // 월간: 화면에 꽉 차는 앱 셸 / 나머지: 페이지 전체 스크롤
     document.body.classList.toggle('view-day', view !== 'month');
     document.body.classList.toggle('view-projects', view === 'projects');
@@ -2167,7 +2177,7 @@
     try { folded = localStorage.getItem(NOTES_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
     $('noteList').hidden = folded;
     $('notesCard').classList.toggle('is-folded', folded);
-    $('notesToggle').textContent = folded ? '▸' : '▾';
+    $('notesToggle').classList.toggle('is-folded', folded);
     $('notesToggle').setAttribute('aria-expanded', folded ? 'false' : 'true');
     var n = notesOf(selectedKey).length;
     $('notesSub').textContent = folded ? (n ? n + '개의 기록이 접혀 있어요' : '기록 없음') : '글과 사진이 시간순으로 쌓여요';
@@ -2206,7 +2216,7 @@
     $('mapHint').hidden = !showBody;
     $('mapTools').hidden = !showBody;
     $('mapFoldBtn').hidden = !m.on;
-    $('mapFoldBtn').textContent = folded ? '▸' : '▾';
+    $('mapFoldBtn').classList.toggle('is-folded', folded);
     $('mapFoldBtn').setAttribute('aria-expanded', folded ? 'false' : 'true');
     $('mapDesc').textContent = !m.on ? '키워드를 놓고 선으로 잇는 생각 지도. 쓰고 싶을 때 켜세요.'
       : folded ? (m.nodes.length ? '키워드 ' + m.nodes.length + '개 · 접혀 있어요' : '접혀 있어요')
@@ -2379,7 +2389,7 @@
     });
     $('mapFoldBtn').addEventListener('click', function () {
       var p = currentMapProject(); if (!p) return;
-      var folded = $('mapFoldBtn').textContent === '▾';
+      var folded = !$('mapFoldBtn').classList.contains('is-folded');
       try { if (folded) localStorage.setItem(MAP_FOLD_KEY, '1'); else localStorage.removeItem(MAP_FOLD_KEY); } catch (e) { /* 무시 */ }
       renderMap(p);
     });
@@ -2413,6 +2423,66 @@
     });
     window.addEventListener('resize', function () { var p = currentMapProject(); if (p && view === 'projects') drawMapLines(p); });
     wrap.addEventListener('scroll', function () { /* 선은 캔버스 좌표라 그대로 */ });
+  }
+
+  // ---------------------------------------------------------------- 다이어리 이름
+  var DEFAULT_TITLE = '계.. 획..? 비슷한 걸 세워보려고 합니다.';
+  function diaryTitle() { return (data.meta && data.meta.title) || DEFAULT_TITLE; }
+  function renderTitle() {
+    var t = diaryTitle();
+    document.querySelector('.greet').textContent = t;
+    document.title = t;
+    if ($('titleInput') && document.activeElement !== $('titleInput')) $('titleInput').value = t;
+  }
+  function bindTitle() {
+    $('titleForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = $('titleInput').value.trim().slice(0, 40);
+      if (!v) { toast('이름을 비울 수는 없어요.', true); return; }
+      data.meta.title = v; data.meta.titleAt = now();
+      save(); renderTitle();
+      toast('이름을 바꿨어요.');
+    });
+  }
+
+  // ---------------------------------------------------------------- 휴대폰: 좌우 스와이프로 화면 넘기기 · 뒤로 가기
+  function bindMobileNav() {
+    var start = null;
+    document.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) { start = null; return; }
+      // 달력(달 넘기기)·마인드맵·입력 칸 안에서는 화면 스와이프를 하지 않는다
+      if (e.target.closest('#calendarGrid, .map-wrap, input, textarea, select, .modal, .ck-grid')) { start = null; return; }
+      start = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (!start || !e.changedTouches.length || window.innerWidth > 900) return;
+      var dx = e.changedTouches[0].clientX - start.x, dy = e.changedTouches[0].clientY - start.y, dt = Date.now() - start.t;
+      start = null;
+      if (dt > 700 || Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+      if (view === 'projects' && projectPage === 'detail') { if (dx > 0) $('pdBack').click(); return; }
+      var i = VIEWS.indexOf(view) + (dx < 0 ? 1 : -1);
+      if (i < 0 || i >= VIEWS.length) return;
+      showView(VIEWS[i]);
+      window.scrollTo({ top: 0 });
+    }, { passive: true });
+
+    // 안드로이드 뒤로 가기: 상세 → 목록, 다른 탭 → 월간 달력, 월간에서 두 번 → 종료
+    var C = window.Capacitor;
+    var AppPlugin = C && C.Plugins && C.Plugins.App;
+    if (!AppPlugin || !AppPlugin.addListener) return;
+    var lastBack = 0;
+    AppPlugin.addListener('backButton', function () {
+      if (!$('eventModal').hidden) { closeEventForm(); return; }
+      if (!$('resolutionModal').hidden) { closeResolutionModal(true); return; }
+      if (!$('logoLightbox').hidden) { $('logoLightbox').hidden = true; return; }
+      if (!$('syncPanel').hidden) { $('syncCloseBtn').click(); return; }
+      if (view === 'projects' && projectPage === 'detail') { leaveProjectDetail(); return; }
+      if (view !== 'month') { showView('month'); window.scrollTo({ top: 0 }); return; }
+      var t = Date.now();
+      if (t - lastBack < 2000) { AppPlugin.exitApp(); return; }
+      lastBack = t;
+      toast('한 번 더 누르면 앱이 종료돼요.');
+    });
   }
 
   // ---------------------------------------------------------------- 파티 모드
@@ -2540,6 +2610,7 @@
 
   // ---------------------------------------------------------------- 전체 렌더
   function renderHeader() {
+    renderTitle();
     $('todayDate').textContent = fmtLong(todayKey());
     var d = new Date();
     var start = new Date(d.getFullYear(), 0, 1);
@@ -2589,6 +2660,8 @@
     bindNotesFold();
     bindMap();
     bindResolution();
+    bindTitle();
+    bindMobileNav();
     if (window.plannerDesktop) document.body.classList.add('desktop');
 
     // 달력
