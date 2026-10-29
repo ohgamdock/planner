@@ -181,6 +181,9 @@ function createWindow() {
     icon: dailyLogoPath(),
     backgroundColor: '#F5F4EF',
     autoHideMenuBar: true,
+    // 윈도우 기본 제목줄을 숨기고 화면 상단바를 제목줄처럼 쓴다 (닫기·최소화 버튼만 윈도우가 그려 준다)
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#EEEBE2', symbolColor: '#1E2924', height: 44 },
     show: false, // 화면이 준비된 뒤에 보여서 빈 창 깜빡임이 없다
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

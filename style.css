@@ -1078,3 +1078,48 @@ body.task-dragging .project-item { border-style: dashed; border-color: #9FB8A8; 
 .notes-card { display: none; }
 body.view-diary .notes-card { display: block; order: -2; }
 body.view-diary .side-col .projects-card { order: 0; }
+
+/* ================= 데스크톱: 상단바가 창 제목줄 역할 (틀 없는 창) ================= */
+body.desktop .app { padding-top: 0; }
+body.desktop .topbar {
+  -webkit-app-region: drag;
+  padding: 6px 150px 6px 6px; /* 오른쪽은 윈도우가 그리는 최소화·닫기 버튼 자리 */
+  min-height: 44px; margin: 0 -16px; width: calc(100% + 32px); padding-left: 14px;
+  background: #EEEBE2; border-bottom: 1px solid #DFE2D8; border-radius: 0;
+}
+body.desktop .topbar button, body.desktop .topbar input, body.desktop .topbar .tabs { -webkit-app-region: no-drag; }
+body.desktop .topbar-left { gap: 10px; }
+body.desktop .logo { width: 30px; height: 30px; border-radius: 8px; }
+body.desktop .greet { font-size: 15px; font-weight: 700; }
+body.desktop.view-day .topbar { margin: 0 -16px; padding-left: 14px; }
+body.desktop.party .topbar { background: #0b0712; border-bottom-color: rgba(255,255,255,.12); }
+@media (max-width: 900px) { body.desktop .topbar { padding-right: 150px; } }
+
+/* 이날의 기록 접기 */
+.notes-card.is-folded .card-head { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+
+/* ================= 마인드맵 ================= */
+.map-tools { display: flex; gap: 4px; flex-wrap: wrap; }
+.map-tools .btn.is-active { background: var(--green); color: #fff; border-color: var(--green); }
+.map-wrap { position: relative; height: 380px; overflow: auto; border: 1px solid var(--line); border-radius: 14px; background:
+  radial-gradient(circle, #D9DDD3 1px, transparent 1.2px) 0 0 / 22px 22px, #FBFBF8; touch-action: none; }
+.map-canvas { position: relative; min-width: 100%; min-height: 100%; }
+.map-lines { position: absolute; left: 0; top: 0; overflow: visible; }
+.map-edge { stroke: #7FA08E; stroke-width: 3; stroke-linecap: round; cursor: pointer; pointer-events: stroke; }
+.map-edge:hover { stroke: var(--danger); }
+.map-nodes { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.map-node {
+  position: absolute; padding: 7px 12px; border-radius: 999px; background: #fff; border: 1.5px solid #B9C9BE; color: var(--text);
+  font-weight: 600; font-size: 14px; cursor: grab; user-select: none; white-space: nowrap; box-shadow: 0 2px 8px -4px rgba(18,26,22,.3);
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+}
+.map-node:active { cursor: grabbing; }
+.map-node.is-selected { border-color: var(--green); box-shadow: 0 0 0 3px rgba(53,96,75,.2); }
+.map-node.c-rose { background: #FCE4EA; border-color: #E8A2B4; }
+.map-node.c-amber { background: #FFF1D6; border-color: #E6C27A; }
+.map-node.c-sky { background: #E1F0FB; border-color: #8FBEE4; }
+.map-node.c-violet { background: #ECE6FA; border-color: #B7A4E8; }
+.map-node.c-mint { background: #E0F5EA; border-color: #8FD0AE; }
+body.party .map-wrap { background: rgba(12,6,24,.6); border-color: rgba(255,255,255,.14); }
+body.party .map-node { background: rgba(30,18,52,.95); color: #fff; border-color: #7C4DFF; }
+@media (max-width: 760px) { .map-wrap { height: 320px; } .map-tools .btn.link { padding: 6px 8px; } }

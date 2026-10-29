@@ -129,6 +129,27 @@
     return out;
   }
 
+  // 마인드맵: 키워드 노드(위치·글)와 연결선. 통째로 최신 쪽을 쓴다.
+  function normMap(m) {
+    var out = { nodes: [], edges: [], updatedAt: 0 };
+    if (!isObj(m)) return out;
+    var ids = {};
+    if (Array.isArray(m.nodes)) m.nodes.forEach(function (n) {
+      if (!isObj(n)) return;
+      var text = str(n.text).trim(); if (!text) return;
+      var id = str(n.id) || uid();
+      ids[id] = true;
+      out.nodes.push({ id: id, text: text, x: Number(n.x) || 0, y: Number(n.y) || 0, color: str(n.color) });
+    });
+    if (Array.isArray(m.edges)) m.edges.forEach(function (e) {
+      if (!isObj(e)) return;
+      var a = str(e.a), b = str(e.b);
+      if (a && b && a !== b && ids[a] && ids[b]) out.edges.push({ a: a, b: b });
+    });
+    out.updatedAt = num(m.updatedAt, 0) || 0;
+    return out;
+  }
+
   function mergeCheck(x, y, newerOne) {
     x = normCheck(x); y = normCheck(y);
     var nc = normCheck(newerOne);
@@ -224,6 +245,7 @@
       next: str(p.next).trim(),
       status: STATUSES[p.status] ? p.status : 'active',
       memo: str(p.memo),
+      map: normMap(p.map),
       tasks: normList(p.tasks, normTask),
       log: normList(p.log, normLog),
       check: normCheck(p.check),
@@ -358,6 +380,7 @@
       next: newerOne.next || older.next || '',
       status: newerOne.status || 'active',
       memo: newerOne.memo || older.memo || '',
+      map: (newerOne.map && newerOne.map.nodes && newerOne.map.nodes.length) ? newerOne.map : (older.map || normMap(null)),
       tasks: mergeList(x.tasks || [], y.tasks || [], deleted, function (t) { return t.text.toLowerCase(); }, combineTask).sort(byCreated),
       log: mergeList(x.log || [], y.log || [], deleted, function (l) { return l.text + '|' + str(l.date).slice(0, 10); }, combineNote).sort(byDateDesc),
       check: mergeCheck(x.check, y.check, newerOne.check),

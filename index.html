@@ -307,6 +307,29 @@
                   <textarea id="pdMemo" rows="4" placeholder="목표, 아이디어, 링크, 참고할 것…" aria-label="메모"></textarea>
                 </div>
 
+                <!-- 마인드맵: 키워드를 놓고 선으로 잇는 자유 캔버스 -->
+                <div class="card pd-section pd-map">
+                  <div class="card-head">
+                    <div>
+                      <h3>🧠 마인드맵</h3>
+                      <p class="muted small">빈 곳을 두 번 누르면 키워드 추가 · 끌어서 이동 · 두 번 누르면 글 수정</p>
+                    </div>
+                    <div class="map-tools">
+                      <button type="button" class="btn ghost small" id="mapAddBtn">+ 키워드</button>
+                      <button type="button" class="btn ghost small" id="mapLinkBtn" aria-pressed="false">🔗 연결</button>
+                      <button type="button" class="btn ghost small" id="mapColorBtn">🎨 색</button>
+                      <button type="button" class="btn link danger" id="mapDeleteBtn">삭제</button>
+                    </div>
+                  </div>
+                  <div class="map-wrap" id="mapWrap">
+                    <div class="map-canvas" id="mapCanvas">
+                      <svg class="map-lines" id="mapLines" aria-hidden="true"></svg>
+                      <div class="map-nodes" id="mapNodes"></div>
+                    </div>
+                  </div>
+                  <p class="muted small" id="mapHint">키워드를 하나 고른 뒤 ‘연결’을 누르고 다른 키워드를 누르면 선이 이어져요. 선을 누르면 끊겨요.</p>
+                </div>
+
                 <div class="card pd-section">
                   <div class="card-head">
                     <h3>🕒 진행 기록</h3>
@@ -408,12 +431,13 @@
         </div>
 
         <!-- 이날의 기록: 일 다이어리에서만, 오늘의 기준 위에 -->
-        <div class="card notes-card">
+        <div class="card notes-card" id="notesCard">
           <div class="card-head">
             <div>
               <h2>이날의 기록</h2>
-              <p class="muted small">글과 사진이 시간순으로 쌓여요</p>
+              <p class="muted small" id="notesSub">글과 사진이 시간순으로 쌓여요</p>
             </div>
+            <button type="button" class="btn ghost small" id="notesToggle" aria-expanded="true" aria-controls="noteList">접기</button>
           </div>
           <ul class="note-list" id="noteList"></ul>
         </div>

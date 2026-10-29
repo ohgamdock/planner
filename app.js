@@ -908,6 +908,7 @@
     var all = notesOf(selectedKey);
     var list = $('noteList');
     list.innerHTML = '';
+    applyNotesFold();
     if (!all.length) {
       list.appendChild(el('li', 'empty', '첫 기록을 남겨보세요. 짧아도, 사진 한 장이어도 충분해요.'));
       return;
@@ -1243,6 +1244,7 @@
       + (p.status === 'done' ? ' · 마무리된 프로젝트예요' : '');
     $('pdBarTitle').textContent = p.title;
     renderPdCheck(p, force);
+    renderMap(p);
     renderPdTasks(p);
     renderPdLog(p);
   }
@@ -2104,6 +2106,201 @@
     });
   }
 
+  // ---------------------------------------------------------------- 이날의 기록 접기/펴기
+  var NOTES_FOLD_KEY = 'planner.v1.notesFolded';
+  function applyNotesFold() {
+    var folded = false;
+    try { folded = localStorage.getItem(NOTES_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
+    $('noteList').hidden = folded;
+    $('notesCard').classList.toggle('is-folded', folded);
+    $('notesToggle').textContent = folded ? '펴기' : '접기';
+    $('notesToggle').setAttribute('aria-expanded', folded ? 'false' : 'true');
+    var n = notesOf(selectedKey).length;
+    $('notesSub').textContent = folded ? (n ? n + '개의 기록이 접혀 있어요' : '기록 없음') : '글과 사진이 시간순으로 쌓여요';
+  }
+  function bindNotesFold() {
+    $('notesToggle').addEventListener('click', function () {
+      var folded = !$('noteList').hidden;
+      try { if (folded) localStorage.setItem(NOTES_FOLD_KEY, '1'); else localStorage.removeItem(NOTES_FOLD_KEY); } catch (e) { /* 무시 */ }
+      applyNotesFold();
+    });
+  }
+
+  // ---------------------------------------------------------------- 마인드맵 (프로젝트별 키워드 캔버스)
+  var MAP_COLORS = ['', 'rose', 'amber', 'sky', 'violet', 'mint'];
+  var mapState = { selected: null, linking: false, drag: null, projectId: null };
+  function mapOf(p) {
+    if (!p.map || typeof p.map !== 'object') p.map = { nodes: [], edges: [], updatedAt: 0 };
+    if (!Array.isArray(p.map.nodes)) p.map.nodes = [];
+    if (!Array.isArray(p.map.edges)) p.map.edges = [];
+    return p.map;
+  }
+  function mapNode(p, id) { return mapOf(p).nodes.filter(function (n) { return n.id === id; })[0] || null; }
+  function saveMap(p) { mapOf(p).updatedAt = now(); touchProject(p); save(); }
+  function currentMapProject() { var f = selectedProjectId ? findProject(selectedProjectId) : null; return f ? f.p : null; }
+  function nodeSize(elm) { return { w: elm.offsetWidth || 90, h: elm.offsetHeight || 34 }; }
+  function renderMap(p) {
+    var m = mapOf(p);
+    if (mapState.projectId !== p.id) { mapState.selected = null; mapState.linking = false; mapState.projectId = p.id; }
+    var wrap = $('mapNodes');
+    wrap.innerHTML = '';
+    var canvas = $('mapCanvas');
+    var maxX = 600, maxY = 320;
+    m.nodes.forEach(function (n) {
+      var d = el('div', 'map-node' + (n.color ? ' c-' + n.color : '') + (n.id === mapState.selected ? ' is-selected' : ''), n.text);
+      d.dataset.id = n.id;
+      d.style.left = n.x + 'px'; d.style.top = n.y + 'px';
+      d.tabIndex = 0;
+      wrap.appendChild(d);
+      maxX = Math.max(maxX, n.x + 220); maxY = Math.max(maxY, n.y + 120);
+    });
+    canvas.style.width = maxX + 'px'; canvas.style.height = maxY + 'px';
+    drawMapLines(p);
+    $('mapLinkBtn').classList.toggle('is-active', mapState.linking);
+    $('mapLinkBtn').setAttribute('aria-pressed', mapState.linking ? 'true' : 'false');
+    $('mapHint').textContent = mapState.linking
+      ? '연결할 다른 키워드를 누르세요. (취소: 연결 버튼 다시 누르기)'
+      : (m.nodes.length ? '키워드를 하나 고른 뒤 ‘연결’을 누르고 다른 키워드를 누르면 선이 이어져요. 선을 누르면 끊겨요.' : '빈 곳을 두 번 누르거나 ‘+ 키워드’로 첫 키워드를 놓아 보세요.');
+  }
+  function drawMapLines(p) {
+    var m = mapOf(p);
+    var svg = $('mapLines');
+    var canvas = $('mapCanvas');
+    svg.setAttribute('width', canvas.style.width); svg.setAttribute('height', canvas.style.height);
+    svg.innerHTML = '';
+    var pos = {};
+    $('mapNodes').querySelectorAll('.map-node').forEach(function (d) {
+      var s = nodeSize(d);
+      pos[d.dataset.id] = { x: d.offsetLeft + s.w / 2, y: d.offsetTop + s.h / 2 };
+    });
+    m.edges.forEach(function (e, i) {
+      var a = pos[e.a], b = pos[e.b]; if (!a || !b) return;
+      var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', a.x); line.setAttribute('y1', a.y); line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+      line.setAttribute('class', 'map-edge'); line.dataset.index = i;
+      svg.appendChild(line);
+    });
+  }
+  function addMapNode(p, x, y, text) {
+    text = (text == null ? prompt('키워드') : text);
+    if (text == null) return null;
+    text = String(text).trim(); if (!text) return null;
+    var n = { id: M.uid(), text: text, x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)), color: '' };
+    mapOf(p).nodes.push(n);
+    mapState.selected = n.id;
+    saveMap(p); renderMap(p);
+    return n;
+  }
+  function bindMap() {
+    var nodes = $('mapNodes');
+    var wrap = $('mapWrap');
+    // 빈 곳 두 번 누르기 → 새 키워드
+    $('mapCanvas').addEventListener('dblclick', function (e) {
+      if (e.target.closest('.map-node')) return;
+      var p = currentMapProject(); if (!p) return;
+      var r = $('mapCanvas').getBoundingClientRect();
+      addMapNode(p, e.clientX - r.left - 45, e.clientY - r.top - 17);
+    });
+    $('mapAddBtn').addEventListener('click', function () {
+      var p = currentMapProject(); if (!p) return;
+      var m = mapOf(p);
+      addMapNode(p, 40 + (m.nodes.length % 4) * 150, 40 + Math.floor(m.nodes.length / 4) * 70);
+    });
+    // 키워드 누르기: 선택 / 연결 모드면 선 잇기
+    nodes.addEventListener('click', function (e) {
+      var d = e.target.closest('.map-node'); if (!d) return;
+      var p = currentMapProject(); if (!p) return;
+      if (mapState.drag && mapState.drag.moved) return;
+      var id = d.dataset.id;
+      if (mapState.linking && mapState.selected && mapState.selected !== id) {
+        var m = mapOf(p);
+        var exists = m.edges.some(function (x) { return (x.a === mapState.selected && x.b === id) || (x.a === id && x.b === mapState.selected); });
+        if (!exists) m.edges.push({ a: mapState.selected, b: id });
+        mapState.linking = false;
+        saveMap(p); renderMap(p);
+        toast(exists ? '이미 이어져 있어요.' : '이었어요.');
+        return;
+      }
+      mapState.selected = id;
+      renderMap(p);
+    });
+    // 두 번 누르기 → 글 수정
+    nodes.addEventListener('dblclick', function (e) {
+      var d = e.target.closest('.map-node'); if (!d) return;
+      e.stopPropagation();
+      var p = currentMapProject(); if (!p) return;
+      var n = mapNode(p, d.dataset.id); if (!n) return;
+      var v = prompt('키워드 수정', n.text);
+      if (v == null) return;
+      v = v.trim(); if (!v) return;
+      n.text = v; saveMap(p); renderMap(p);
+    });
+    // 끌어서 이동 (마우스·터치 공통)
+    nodes.addEventListener('pointerdown', function (e) {
+      var d = e.target.closest('.map-node'); if (!d) return;
+      var p = currentMapProject(); if (!p) return;
+      var n = mapNode(p, d.dataset.id); if (!n) return;
+      mapState.drag = { id: n.id, startX: e.clientX, startY: e.clientY, ox: n.x, oy: n.y, moved: false, el: d };
+      d.setPointerCapture(e.pointerId);
+    });
+    nodes.addEventListener('pointermove', function (e) {
+      var g = mapState.drag; if (!g) return;
+      var dx = e.clientX - g.startX, dy = e.clientY - g.startY;
+      if (!g.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+      g.moved = true;
+      var p = currentMapProject(); if (!p) return;
+      var n = mapNode(p, g.id); if (!n) return;
+      n.x = Math.max(0, Math.round(g.ox + dx)); n.y = Math.max(0, Math.round(g.oy + dy));
+      g.el.style.left = n.x + 'px'; g.el.style.top = n.y + 'px';
+      drawMapLines(p);
+    });
+    function endDrag() {
+      var g = mapState.drag; if (!g) return;
+      var p = currentMapProject();
+      if (g.moved && p) { saveMap(p); renderMap(p); }
+      setTimeout(function () { mapState.drag = null; }, 0);
+    }
+    nodes.addEventListener('pointerup', endDrag);
+    nodes.addEventListener('pointercancel', endDrag);
+    // 선 누르면 끊기
+    $('mapLines').addEventListener('click', function (e) {
+      var line = e.target.closest('.map-edge'); if (!line) return;
+      var p = currentMapProject(); if (!p) return;
+      mapOf(p).edges.splice(Number(line.dataset.index), 1);
+      saveMap(p); renderMap(p);
+    });
+    $('mapLinkBtn').addEventListener('click', function () {
+      var p = currentMapProject(); if (!p) return;
+      if (!mapState.selected) { toast('먼저 이을 키워드를 하나 누르세요.'); return; }
+      mapState.linking = !mapState.linking;
+      renderMap(p);
+    });
+    $('mapColorBtn').addEventListener('click', function () {
+      var p = currentMapProject(); if (!p) return;
+      var n = mapState.selected ? mapNode(p, mapState.selected) : null;
+      if (!n) { toast('색을 바꿀 키워드를 먼저 누르세요.'); return; }
+      n.color = MAP_COLORS[(MAP_COLORS.indexOf(n.color) + 1) % MAP_COLORS.length];
+      saveMap(p); renderMap(p);
+    });
+    $('mapDeleteBtn').addEventListener('click', function () {
+      var p = currentMapProject(); if (!p) return;
+      var n = mapState.selected ? mapNode(p, mapState.selected) : null;
+      if (!n) { toast('지울 키워드를 먼저 누르세요.'); return; }
+      var m = mapOf(p);
+      m.nodes = m.nodes.filter(function (x) { return x.id !== n.id; });
+      m.edges = m.edges.filter(function (x) { return x.a !== n.id && x.b !== n.id; });
+      mapState.selected = null;
+      saveMap(p); renderMap(p);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Delete' || view !== 'projects' || !mapState.selected) return;
+      if (/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+      $('mapDeleteBtn').click();
+    });
+    window.addEventListener('resize', function () { var p = currentMapProject(); if (p && view === 'projects') drawMapLines(p); });
+    wrap.addEventListener('scroll', function () { /* 선은 캔버스 좌표라 그대로 */ });
+  }
+
   // ---------------------------------------------------------------- 파티 모드
   // 빠른 기록 칸에 "파티파티"라고 적으면 클럽 테마가 켜지고, "그만!!!"이라고 적으면 원래대로 돌아온다.
   var PARTY_KEY = 'planner.v1.party';
@@ -2275,6 +2472,9 @@
     bindNotify();
     bindParty();
     bindTaskLinking();
+    bindNotesFold();
+    bindMap();
+    if (window.plannerDesktop) document.body.classList.add('desktop');
 
     // 달력
     $('calendarGrid').addEventListener('click', function (e) {
