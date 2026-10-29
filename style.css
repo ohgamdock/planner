@@ -1214,3 +1214,15 @@ body.desktop .topbar-right { justify-self: end; margin: 0; }
   .ck-label { flex: 0 0 auto; width: 100%; min-height: 40px; height: 40px; }
   .ck-stats { flex: 0 0 auto; }
 }
+
+/* 상단바 좌우 균형(탭 정중앙) · 제목 한 줄 · 접기 화살표 SVG · 마인드맵 도구는 오른쪽, 토글→화살표가 맨 끝 */
+body.desktop .topbar { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+body.desktop .greet { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.desktop .topbar-left { min-width: 0; max-width: 100%; }
+.fold-btn, .fold-btn.btn.link { width: 44px; min-height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--green); transition: transform .3s cubic-bezier(.2,.8,.3,1.2), background .15s; }
+.fold-btn .chev { width: 30px; height: 30px; display: block; }
+.fold-btn.is-folded { transform: rotate(-90deg); }
+.fold-btn:hover { background: var(--green-soft); }
+.map-tools { margin-left: auto; }
+.map-end { margin-left: 14px; }
+@media (max-width: 760px) { .map-tools { margin-left: 0; width: auto; } .map-end { margin-left: auto; } }

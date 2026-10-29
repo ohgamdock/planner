@@ -2972,7 +2972,9 @@
     bind();
     resetRoutineForm();
     renderSyncPanel();
-    showView('month');
+    // 주소에 ?view=projects 처럼 적으면 그 화면으로 바로 연다
+    var wantView = (location.search.match(/[?&]view=([a-z]+)/) || [])[1];
+    showView(VIEWS.indexOf(wantView) >= 0 ? wantView : 'month');
     renderAll();
     if (syncKey) startPolling();
     // 휴대폰 설치형(PWA): 서버에서 https로 열었을 때만 등록 (데스크톱 앱·개발 중엔 캐시가 방해되지 않게)
