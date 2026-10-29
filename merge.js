@@ -71,6 +71,12 @@
     if (t.seed) task.seed = true;
     var routineId = str(t.routineId);
     if (routineId) task.routineId = routineId;
+    // 하루 계획 ↔ 프로젝트 할 일 연동: 날짜 할 일에는 projectId, 프로젝트 할 일에는 dayKey (같은 id를 공유)
+    var projectId = str(t.projectId);
+    if (projectId) task.projectId = projectId;
+    var dk = str(t.dayKey);
+    if (DATE_RE.test(dk)) task.dayKey = dk;
+    if (t.logged) task.logged = true;
     return task;
   }
 

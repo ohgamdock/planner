@@ -532,7 +532,7 @@
 
       if (evs.length) {
         var list = el('span', 'day-events');
-        var shown = evs.slice(0, 2);
+        var shown = evs.slice(0, window.innerWidth <= 760 ? 3 : 2);
         shown.forEach(function (e) {
           var cls = 'day-ev ' + e.kind;
           if (e.endDate) {
@@ -817,7 +817,18 @@
     label.appendChild(cb);
     label.appendChild(el('span', 'task-text', t.text));
     if (isCore) label.appendChild(el('span', 'badge-core', '핵심'));
+    if (t.projectId) {
+      var pf = findProject(t.projectId);
+      if (pf) { var pb = el('span', 'badge-proj', '📁 ' + pf.p.title); pb.title = '프로젝트 할 일과 연동됨'; label.appendChild(pb); }
+    }
     li.appendChild(label);
+    if (!t.routineId) {
+      li.draggable = true;
+      li.title = '오른쪽 프로젝트로 끌어다 놓으면 그 프로젝트 할 일이 돼요';
+      var lk = el('button', 'btn link', '📁'); lk.type = 'button'; lk.dataset.action = 'link';
+      lk.title = '프로젝트에 넣기'; lk.setAttribute('aria-label', '‘' + t.text + '’ 프로젝트에 넣기');
+      li.appendChild(lk);
+    }
     var ed = el('button', 'btn link', '수정'); ed.type = 'button'; ed.dataset.action = 'edit';
     ed.setAttribute('aria-label', '‘' + t.text + '’ 수정');
     li.appendChild(ed);
@@ -857,6 +868,7 @@
     if (!task) return;
     task.done = !!done; task.updatedAt = now();
     delete task.seed;
+    syncLinkedProjectTask(task);
     // 루틴이 프로젝트에 연결되어 있으면, 그 프로젝트의 날짜별 체크도 함께 바꾼다
     if (task.routineId) {
       var r = findRoutine(task.routineId);
@@ -880,7 +892,13 @@
     if (!confirm(q)) return;
     var rest = tasks.filter(function (t) { return t.id !== id; });
     if (rest.length) data.days[selectedKey].tasks = rest; else delete data.days[selectedKey];
-    tombstone(id);
+    // 프로젝트에 연동된 할 일이면 프로젝트 쪽은 남기고 연결만 끊는다 (같은 id를 쓰므로 툼스톤은 만들지 않는다)
+    if (task.projectId) {
+      var pf = findProject(task.projectId);
+      if (pf) { pf.p.tasks.forEach(function (x) { if (x.id === id) { delete x.dayKey; x.updatedAt = now(); } }); touchProject(pf.p); }
+    } else {
+      tombstone(id);
+    }
     save();
     renderTasks();
   }
@@ -1247,6 +1265,7 @@
       cb.setAttribute('aria-label', t.text + (t.done ? ' (완료)' : ''));
       label.appendChild(cb);
       label.appendChild(el('span', 'task-text', t.text));
+      if (t.dayKey) { var db = el('span', 'badge-proj', '📅 ' + fmtMonthDay(t.dayKey)); db.title = '하루 계획과 연동됨'; label.appendChild(db); }
       li.appendChild(label);
       if (!t.done) {
         var today = el('button', 'btn link to-today', '오늘로'); today.type = 'button'; today.dataset.action = 'today';
@@ -1305,7 +1324,7 @@
     if (!confirm('‘' + found.p.title + '’ 프로젝트를 지울까요?\n할 일과 진행 기록도 함께 사라져요.')) return;
     data.projects[found.cat].splice(found.index, 1);
     tombstone(id);
-    (found.p.tasks || []).forEach(function (t) { tombstone(t.id); });
+    (found.p.tasks || []).forEach(function (t) { if (t.dayKey) unlinkDayTask(t); else tombstone(t.id); });
     (found.p.log || []).forEach(function (l) { tombstone(l.id); });
     // 이 프로젝트에 연결된 루틴은 연결만 끊는다
     data.routines.forEach(function (r) { if (r.projectId === id) { r.projectId = ''; r.updatedAt = now(); } });
@@ -1408,7 +1427,9 @@
       var found = findProject(selectedProjectId); if (!found) return;
       var task = found.p.tasks.filter(function (x) { return x.id === e.target.dataset.id; })[0]; if (!task) return;
       task.done = e.target.checked; task.updatedAt = now(); touchProject(found.p);
+      syncLinkedDayTask(task);
       save(); renderProjectsView(false);
+      if (task.dayKey === selectedKey) renderTasks();
     });
     $('pdTaskList').addEventListener('click', function (e) {
       var btn = e.target.closest('button[data-action]'); if (!btn) return;
@@ -1416,10 +1437,12 @@
       var id = btn.closest('.task-item').dataset.id;
       var task = found.p.tasks.filter(function (x) { return x.id === id; })[0]; if (!task) return;
       if (btn.dataset.action === 'delete') {
-        if (!confirm('‘' + task.text + '’ 할 일을 지울까요?')) return;
+        if (!confirm('‘' + task.text + '’ 할 일을 지울까요?' + (task.dayKey ? '\n(하루 계획 쪽은 남고 연결만 끊겨요)' : ''))) return;
         found.p.tasks = found.p.tasks.filter(function (x) { return x.id !== id; });
-        tombstone(id); touchProject(found.p);
+        if (task.dayKey) unlinkDayTask(task); else tombstone(id);
+        touchProject(found.p);
         save(); renderProjectsView(false);
+        if (task.dayKey === selectedKey) renderTasks();
       } else if (btn.dataset.action === 'edit') {
         inlineEdit(btn.closest('.task-item'), {
           value: task.text, maxlength: 120, label: '할 일 수정',
@@ -1970,6 +1993,116 @@
     scheduleMobileNotifications();
   }
 
+  // ---------------------------------------------------------------- 하루 계획 ↔ 프로젝트 할 일 연동
+  // 같은 id의 할 일이 날짜 목록(projectId 표시)과 프로젝트 목록(dayKey 표시) 양쪽에 있으면 연동된 것이다.
+  function syncLinkedProjectTask(task) {
+    if (!task.projectId) return;
+    var found = findProject(task.projectId);
+    if (!found) { delete task.projectId; return; }
+    var pt = found.p.tasks.filter(function (x) { return x.id === task.id; })[0];
+    if (!pt) { delete task.projectId; return; }
+    if (pt.done !== task.done) { pt.done = task.done; pt.updatedAt = now(); touchProject(found.p); }
+    if (view === 'projects') renderProjectsView(false);
+  }
+  function unlinkDayTask(pt) {
+    if (!pt.dayKey || !data.days[pt.dayKey]) return;
+    data.days[pt.dayKey].tasks.forEach(function (x) { if (x.id === pt.id) { delete x.projectId; x.updatedAt = now(); } });
+  }
+  function syncLinkedDayTask(pt) {
+    if (!pt.dayKey || !data.days[pt.dayKey]) return;
+    var t = data.days[pt.dayKey].tasks.filter(function (x) { return x.id === pt.id; })[0];
+    if (!t) { delete pt.dayKey; return; }
+    if (t.done !== pt.done) { t.done = pt.done; t.updatedAt = now(); }
+  }
+  function linkTaskToProject(taskId, projectId) {
+    var task = tasksOf(selectedKey).filter(function (t) { return t.id === taskId; })[0];
+    var found = findProject(projectId);
+    if (!task || !found) return;
+    if (task.projectId === projectId) { toast('이미 이 프로젝트에 연결돼 있어요.'); return; }
+    // 다른 프로젝트에 연결돼 있었다면 거기서 뺀다
+    if (task.projectId) {
+      var old = findProject(task.projectId);
+      if (old) { old.p.tasks = old.p.tasks.filter(function (x) { return x.id !== task.id; }); touchProject(old.p); }
+    }
+    var t = now();
+    found.p.tasks.push({ id: task.id, text: task.text, done: task.done, dayKey: selectedKey, createdAt: t, updatedAt: t });
+    task.projectId = projectId; task.updatedAt = t;
+    delete task.seed;
+    touchProject(found.p);
+    save();
+    renderTasks(); renderProjects();
+    if (view === 'projects') renderProjectsView(false);
+    toast('‘' + found.p.title + '’ 프로젝트의 할 일에 넣었어요. 양쪽에서 같이 체크돼요.');
+  }
+  // 연동된 할 일을 완료한 채로 하루가 지나면 프로젝트 진행 기록에 남긴다
+  function flushLinkedLogs() {
+    var tKey = todayKey();
+    var changed = false;
+    Object.keys(data.days).forEach(function (key) {
+      if (key >= tKey) return;
+      data.days[key].tasks.forEach(function (t) {
+        if (!t.projectId || !t.done || t.logged) return;
+        var found = findProject(t.projectId);
+        if (!found) return;
+        var d = parseKey(key); d.setHours(23, 59, 0, 0);
+        found.p.log.unshift({ id: M.uid(), text: '✅ ' + t.text, date: d.toISOString(), updatedAt: now() });
+        touchProject(found.p);
+        t.logged = true; t.updatedAt = now();
+        var pt = found.p.tasks.filter(function (x) { return x.id === t.id; })[0];
+        if (pt) pt.logged = true;
+        changed = true;
+      });
+    });
+    if (changed) save();
+  }
+  // 할 일 옆 📁 버튼: 프로젝트 고르기 (휴대폰처럼 끌어다 놓기가 안 되는 곳용)
+  function openProjectPicker(li, taskId) {
+    var old = li.querySelector('.proj-picker');
+    if (old) { old.remove(); return; }
+    var box = el('div', 'proj-picker');
+    var items = data.projects.work.concat(data.projects.personal).filter(function (p) { return p.status !== 'done'; });
+    if (!items.length) { box.appendChild(el('span', 'muted small', '진행 중인 프로젝트가 없어요.')); }
+    items.forEach(function (p) {
+      var b = el('button', 'btn ghost small', '📁 ' + p.title); b.type = 'button';
+      b.addEventListener('click', function () { linkTaskToProject(taskId, p.id); });
+      box.appendChild(b);
+    });
+    li.appendChild(box);
+  }
+  function bindTaskLinking() {
+    // 데스크톱: 하루 계획 항목을 오른쪽 '진행 중인 프로젝트'로 끌어다 놓기
+    $('taskList').addEventListener('dragstart', function (e) {
+      var li = e.target.closest('.task-item'); if (!li) return;
+      e.dataTransfer.setData('text/plain', li.dataset.id);
+      e.dataTransfer.effectAllowed = 'link';
+      li.classList.add('is-dragging');
+      document.body.classList.add('task-dragging');
+    });
+    $('taskList').addEventListener('dragend', function (e) {
+      var li = e.target.closest('.task-item'); if (li) li.classList.remove('is-dragging');
+      document.body.classList.remove('task-dragging');
+    });
+    var plist = $('projectList');
+    plist.addEventListener('dragover', function (e) {
+      var item = e.target.closest('.project-item'); if (!item) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'link';
+      item.classList.add('is-drop');
+    });
+    plist.addEventListener('dragleave', function (e) {
+      var item = e.target.closest('.project-item'); if (item) item.classList.remove('is-drop');
+    });
+    plist.addEventListener('drop', function (e) {
+      var item = e.target.closest('.project-item'); if (!item) return;
+      e.preventDefault(); item.classList.remove('is-drop');
+      var id = e.dataTransfer.getData('text/plain');
+      if (id) linkTaskToProject(id, item.dataset.id);
+    });
+    $('taskList').addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-action="link"]'); if (!btn) return;
+      openProjectPicker(btn.closest('.task-item'), btn.closest('.task-item').dataset.id);
+    });
+  }
+
   // ---------------------------------------------------------------- 파티 모드
   // 빠른 기록 칸에 "파티파티"라고 적으면 클럽 테마가 켜지고, "그만!!!"이라고 적으면 원래대로 돌아온다.
   var PARTY_KEY = 'planner.v1.party';
@@ -2140,6 +2273,7 @@
     bindRoutines();
     bindNotify();
     bindParty();
+    bindTaskLinking();
 
     // 달력
     $('calendarGrid').addEventListener('click', function (e) {
@@ -2466,8 +2600,9 @@
     // 여기까지 왔으면 정상 시작: 자가 복구 플래그를 지운다
     if (window.__plannerHealed) window.__plannerHealed();
     // 날짜가 바뀌면(자정 경과) 헤더와 오늘 표시를 갱신
+    flushLinkedLogs();
     setInterval(function () {
-      if ($('todayDate').textContent !== fmtLong(todayKey())) renderAll();
+      if ($('todayDate').textContent !== fmtLong(todayKey())) { flushLinkedLogs(); renderAll(); }
     }, 60000);
   }
 
