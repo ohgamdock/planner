@@ -785,38 +785,46 @@
   }
 
   function renderTasks() {
-    // 이 날짜에 해당하는 루틴을 하루 계획에 채워 넣는다
+    // 이 날짜에 해당하는 루틴을 채워 넣는다
     if (ensureRoutineTasks(selectedKey)) { data.updatedAt = now(); persistLocal(); schedulePush(); }
-    var tasks = tasksOf(selectedKey).slice().sort(function (a, b) { return a.createdAt - b.createdAt; });
+    var all = tasksOf(selectedKey).slice().sort(function (a, b) { return a.createdAt - b.createdAt; });
+    // 루틴은 하루 계획과 따로 보여준다
+    var tasks = all.filter(function (t) { return !t.routineId; });
+    var routines = all.filter(function (t) { return !!t.routineId; });
     var done = tasks.filter(function (t) { return t.done; }).length;
     $('taskCount').textContent = done + ' / ' + tasks.length + ' 완료';
     $('taskProgress').style.width = tasks.length ? Math.round(done / tasks.length * 100) + '%' : '0%';
-
     var list = $('taskList');
     list.innerHTML = '';
-    if (!tasks.length) {
-      list.appendChild(el('li', 'empty', '할 일을 비워둬도 괜찮아요. 하나부터 시작해요.'));
-      return;
-    }
-    tasks.forEach(function (t, i) {
-      var li = el('li', 'task-item' + (t.done ? ' is-done' : ''));
-      li.dataset.id = t.id;
-      var label = el('label');
-      var cb = el('input'); cb.type = 'checkbox'; cb.checked = t.done; cb.dataset.id = t.id;
-      cb.setAttribute('aria-label', t.text + (t.done ? ' (완료)' : ''));
-      label.appendChild(cb);
-      label.appendChild(el('span', 'task-text', t.text));
-      if (i === 0) label.appendChild(el('span', 'badge-core', '핵심'));
-      if (t.routineId) { var rb = el('span', 'badge-routine', '🔁 루틴'); rb.title = '루틴 탭에서 등록한 할 일'; label.appendChild(rb); }
-      li.appendChild(label);
-      var ed = el('button', 'btn link', '수정'); ed.type = 'button'; ed.dataset.action = 'edit';
-      ed.setAttribute('aria-label', '‘' + t.text + '’ 수정');
-      li.appendChild(ed);
-      var del = el('button', 'btn link danger', '삭제'); del.type = 'button'; del.dataset.action = 'delete';
-      del.setAttribute('aria-label', '‘' + t.text + '’ 삭제');
-      li.appendChild(del);
-      list.appendChild(li);
-    });
+    if (!tasks.length) list.appendChild(el('li', 'empty', '할 일을 비워둬도 괜찮아요. 하나부터 시작해요.'));
+    tasks.forEach(function (t, i) { list.appendChild(taskItem(t, i === 0)); });
+
+    var rdone = routines.filter(function (t) { return t.done; }).length;
+    $('routineDayCard').hidden = !routines.length;
+    $('routineTaskCount').textContent = rdone + ' / ' + routines.length + ' 완료';
+    $('routineProgress').style.width = routines.length ? Math.round(rdone / routines.length * 100) + '%' : '0%';
+    var rlist = $('routineTaskList');
+    rlist.innerHTML = '';
+    routines.forEach(function (t) { rlist.appendChild(taskItem(t, false)); });
+  }
+
+  function taskItem(t, isCore) {
+    var li = el('li', 'task-item' + (t.done ? ' is-done' : ''));
+    li.dataset.id = t.id;
+    var label = el('label');
+    var cb = el('input'); cb.type = 'checkbox'; cb.checked = t.done; cb.dataset.id = t.id;
+    cb.setAttribute('aria-label', t.text + (t.done ? ' (완료)' : ''));
+    label.appendChild(cb);
+    label.appendChild(el('span', 'task-text', t.text));
+    if (isCore) label.appendChild(el('span', 'badge-core', '핵심'));
+    li.appendChild(label);
+    var ed = el('button', 'btn link', '수정'); ed.type = 'button'; ed.dataset.action = 'edit';
+    ed.setAttribute('aria-label', '‘' + t.text + '’ 수정');
+    li.appendChild(ed);
+    var del = el('button', 'btn link danger', '삭제'); del.type = 'button'; del.dataset.action = 'delete';
+    del.setAttribute('aria-label', '‘' + t.text + '’ 삭제');
+    li.appendChild(del);
+    return li;
   }
 
   function editTask(li, id) {
@@ -2309,15 +2317,18 @@
       e.preventDefault();
       if (addTask($('taskInput').value)) { $('taskInput').value = ''; $('taskInput').focus(); }
     });
-    $('taskList').addEventListener('change', function (e) {
-      if (e.target.type === 'checkbox') toggleTask(e.target.dataset.id, e.target.checked);
-    });
-    $('taskList').addEventListener('click', function (e) {
-      var btn = e.target.closest('button[data-action]');
-      if (!btn) return;
-      var li = btn.closest('.task-item');
-      if (btn.dataset.action === 'delete') deleteTask(li.dataset.id);
-      else if (btn.dataset.action === 'edit') editTask(li, li.dataset.id);
+    // 하루 계획 목록과 오늘 루틴 목록은 같은 동작(체크·수정·삭제)
+    ['taskList', 'routineTaskList'].forEach(function (id) {
+      $(id).addEventListener('change', function (e) {
+        if (e.target.type === 'checkbox') toggleTask(e.target.dataset.id, e.target.checked);
+      });
+      $(id).addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        var li = btn.closest('.task-item');
+        if (btn.dataset.action === 'delete') deleteTask(li.dataset.id);
+        else if (btn.dataset.action === 'edit') editTask(li, li.dataset.id);
+      });
     });
 
     // 백업

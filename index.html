@@ -156,6 +156,19 @@
             </form>
           </div>
 
+          <!-- 오늘 루틴: 하루 계획과 따로 (루틴이 있는 날만 보임) -->
+          <div class="card" id="routineDayCard" hidden>
+            <div class="card-head">
+              <div>
+                <h2>🔁 오늘 루틴</h2>
+                <p class="muted small">루틴 탭에서 등록한 것이 정한 요일마다 들어와요</p>
+              </div>
+              <span class="muted small" id="routineTaskCount">0 / 0 완료</span>
+            </div>
+            <div class="progress" aria-hidden="true"><div class="progress-bar" id="routineProgress"></div></div>
+            <ul class="task-list" id="routineTaskList"></ul>
+          </div>
+
           <div class="card">
             <div class="card-head">
               <div>
