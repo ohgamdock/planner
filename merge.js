@@ -31,6 +31,7 @@
       updatedAt: 0,
       days: {},
       notes: [],
+      resolutions: {},
       events: [],
       projects: { work: [], personal: [] },
       routines: [],
@@ -281,6 +282,15 @@
       });
     }
     d.notes = normList(raw.notes, normNote);
+    // 오늘의 각오: 날짜별 한 줄 (고치거나 지우지 않음)
+    if (isObj(raw.resolutions)) {
+      Object.keys(raw.resolutions).forEach(function (key) {
+        if (!DATE_RE.test(key)) return;
+        var r = raw.resolutions[key];
+        var text = str(isObj(r) ? r.text : r).trim();
+        if (text) d.resolutions[key] = { text: text, updatedAt: num(isObj(r) ? r.updatedAt : 0, 0) || 0 };
+      });
+    }
     d.events = normList(raw.events, normEvent);
     if (isObj(raw.projects)) {
       d.projects.work = normList(raw.projects.work, normProject);
@@ -447,6 +457,13 @@
     });
 
     // 기록: 날짜 + 본문(+사진 길이) 기준으로 중복 제거
+    // 각오: 먼저 적은 쪽(오래된 updatedAt)을 지킨다 — 적은 뒤에는 바꾸지 않는 규칙
+    [a.resolutions, b.resolutions].forEach(function (rs) {
+      Object.keys(rs).forEach(function (k) {
+        var cur = out.resolutions[k];
+        if (!cur || (rs[k].updatedAt || 0) < (cur.updatedAt || 0)) out.resolutions[k] = rs[k];
+      });
+    });
     out.notes = mergeList(a.notes, b.notes, deleted, function (n) {
       return n.dayKey + '|' + n.text + '|' + (n.image ? n.image.length : 0);
     }, combineNote).sort(byDateDesc);

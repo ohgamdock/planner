@@ -1123,3 +1123,17 @@ body.desktop.party .topbar { background: #0b0712; border-bottom-color: rgba(255,
 body.party .map-wrap { background: rgba(12,6,24,.6); border-color: rgba(255,255,255,.14); }
 body.party .map-node { background: rgba(30,18,52,.95); color: #fff; border-color: #7C4DFF; }
 @media (max-width: 760px) { .map-wrap { height: 320px; } .map-tools .btn.link { padding: 6px 8px; } }
+
+/* ================= 설정 톱니 · 각오 카드 · 고정 상단바 ================= */
+.btn.gear { position: relative; width: 38px; min-height: 38px; padding: 0; font-size: 19px; border-radius: 999px; }
+.gear-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: #C9CEC6; }
+.btn.gear.is-synced .gear-dot { background: #3F8A5C; }
+.btn.gear.is-saving .gear-dot { background: var(--today-dot); }
+.sync-reset { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.resolution-card .resolution-text { font-size: 17px; font-weight: 700; line-height: 1.5; color: var(--green-deep); white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 4px; }
+.resolution-card .btn { margin-top: 8px; }
+.map-node-input { cursor: text; min-width: 110px; width: auto; min-height: 0; font: inherit; font-weight: 600; font-size: 14px; border-color: var(--green); }
+/* 데스크톱: 상단바를 창 맨 위에 고정해서 스크롤해도 창 버튼 자리가 내용 위에 뜨지 않게 */
+body.desktop .topbar, body.desktop.view-day .topbar { position: fixed; top: 0; left: 0; right: 0; width: auto; margin: 0; z-index: 25; padding-left: 14px; }
+body.desktop .app { padding-top: 56px; }
+body.desktop .sync-panel { position: fixed; top: 52px; right: 16px; }

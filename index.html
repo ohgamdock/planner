@@ -34,18 +34,27 @@
 
       <div class="topbar-right">
         <span class="today-date" id="todayDate"></span>
-        <button type="button" class="status-btn" id="syncStatusBtn" aria-expanded="false" aria-controls="syncPanel">이 기기에 저장 · 로그인 후 동기화</button>
-        <button type="button" class="btn reset small" id="resetTodayBtn">🌱 오늘 리셋</button>
+        <button type="button" class="btn ghost icon gear" id="syncStatusBtn" aria-expanded="false" aria-controls="syncPanel" title="설정" aria-label="설정"><span class="gear-dot" id="syncDot" aria-hidden="true"></span>⚙</button>
       </div>
     </header>
 
     <section class="sync-panel card" id="syncPanel" hidden>
       <div class="sync-row">
         <div>
-          <strong>기기 연결</strong>
-          <p class="muted small" id="syncHelp">동기화 코드를 만들면 다른 기기에서 같은 코드를 입력해 기록을 이어 볼 수 있어요.</p>
+          <strong>⚙ 설정</strong>
+          <p class="muted small" id="syncStatusText">이 기기에 저장</p>
         </div>
         <button type="button" class="btn ghost small" id="syncCloseBtn">닫기</button>
+      </div>
+      <div class="sync-reset">
+        <button type="button" class="btn reset small" id="resetTodayBtn">🌱 오늘 리셋</button>
+        <span class="muted small">오늘 하루 계획의 체크를 모두 풀고 다시 시작해요.</span>
+      </div>
+      <div class="sync-row" style="margin-top: 12px">
+        <div>
+          <strong class="small">기기 연결</strong>
+          <p class="muted small" id="syncHelp">동기화 코드를 만들면 다른 기기에서 같은 코드를 입력해 기록을 이어 볼 수 있어요.</p>
+        </div>
       </div>
       <div class="sync-current" id="syncCurrent" hidden>
         <span class="muted small">내 동기화 코드</span>
@@ -307,6 +316,17 @@
                   <textarea id="pdMemo" rows="4" placeholder="목표, 아이디어, 링크, 참고할 것…" aria-label="메모"></textarea>
                 </div>
 
+                <div class="card pd-section">
+                  <div class="card-head">
+                    <h3>🕒 진행 기록</h3>
+                    <span class="muted small">오늘 한 일을 한 줄로</span>
+                  </div>
+                  <form id="pdLogForm" class="inline-add">
+                    <input type="text" id="pdLogInput" placeholder="예: 시안 2개 보냄, 거래처 통화" maxlength="200" autocomplete="off" aria-label="진행 기록 추가">
+                    <button type="submit" class="btn primary">기록</button>
+                  </form>
+                  <ul class="pd-log" id="pdLogList"></ul>
+                </div>
                 <!-- 마인드맵: 키워드를 놓고 선으로 잇는 자유 캔버스 -->
                 <div class="card pd-section pd-map">
                   <div class="card-head">
@@ -328,18 +348,6 @@
                     </div>
                   </div>
                   <p class="muted small" id="mapHint">키워드를 하나 고른 뒤 ‘연결’을 누르고 다른 키워드를 누르면 선이 이어져요. 선을 누르면 끊겨요.</p>
-                </div>
-
-                <div class="card pd-section">
-                  <div class="card-head">
-                    <h3>🕒 진행 기록</h3>
-                    <span class="muted small">오늘 한 일을 한 줄로</span>
-                  </div>
-                  <form id="pdLogForm" class="inline-add">
-                    <input type="text" id="pdLogInput" placeholder="예: 시안 2개 보냄, 거래처 통화" maxlength="200" autocomplete="off" aria-label="진행 기록 추가">
-                    <button type="submit" class="btn primary">기록</button>
-                  </form>
-                  <ul class="pd-log" id="pdLogList"></ul>
                 </div>
               </div>
             </div>
@@ -442,12 +450,12 @@
           <ul class="note-list" id="noteList"></ul>
         </div>
 
-        <div class="card tint">
-          <h2>🧭 오늘의 기준</h2>
-          <p>계획이 무너져도 괜찮아요.</p>
-          <p>지금 할 수 있는 가장 작은 한 가지를 고르세요.</p>
-          <p class="emph" id="dailyEmph">10분만 해도 충분해요.</p>
-          <p class="muted small">체크 0개인 날도 실패가 아니라 다음 시작점이에요.</p>
+        <!-- 오늘의 각오: 하루 처음 열 때 적고, 그날은 고치거나 지울 수 없다 -->
+        <div class="card tint resolution-card" id="resolutionCard">
+          <h2>🔥 오늘의 각오</h2>
+          <p class="resolution-text" id="resolutionText"></p>
+          <p class="muted small" id="resolutionSub"></p>
+          <button type="button" class="btn primary small" id="resolutionBtn" hidden>오늘의 각오 적기</button>
         </div>
       </aside>
     </div>
@@ -506,6 +514,27 @@
         </div>
         <ul class="event-list" id="eventList"></ul>
       </div>
+    </div>
+  </div>
+
+  <!-- 오늘의 각오 적기 (하루 첫 실행) -->
+  <div class="modal" id="resolutionModal" hidden>
+    <div class="modal-backdrop" id="resolutionBackdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="resolutionModalTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="resolutionModalTitle">🔥 오늘의 각오</h2>
+          <p class="muted small" id="resolutionModalDate"></p>
+        </div>
+      </div>
+      <form id="resolutionForm" class="event-form">
+        <textarea id="resolutionInput" rows="3" maxlength="200" placeholder="오늘 하루, 나에게 하는 한마디"></textarea>
+        <p class="muted small">한 번 적으면 오늘은 고치거나 지울 수 없어요. 그래서 더 진심으로.</p>
+        <div class="form-actions">
+          <button type="button" class="btn ghost" id="resolutionLaterBtn">나중에</button>
+          <button type="submit" class="btn primary">이걸로 하루 시작</button>
+        </div>
+      </form>
     </div>
   </div>
 

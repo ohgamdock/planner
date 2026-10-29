@@ -280,9 +280,63 @@
 
   function renderStatus() {
     var b = $('syncStatusBtn');
-    b.textContent = statusText();
-    b.classList.toggle('is-synced', !!syncKey && sync.serverOk === true && !sync.dirty && !sync.pushing);
+    b.title = '설정 · ' + statusText();
+    $('syncStatusText').textContent = statusText();
+    var synced = !!syncKey && sync.serverOk === true && !sync.dirty && !sync.pushing;
+    b.classList.toggle('is-synced', synced);
     b.classList.toggle('is-saving', sync.pushing || sync.dirty);
+  }
+
+  // ---------------------------------------------------------------- 오늘의 각오
+  var RESOLUTION_LATER_KEY = 'planner.v1.resolutionLater';
+  function resolutionOf(key) { return data.resolutions && data.resolutions[key] ? data.resolutions[key].text : ''; }
+  function renderResolution() {
+    var tKey = todayKey();
+    var text = resolutionOf(tKey);
+    $('resolutionText').textContent = text;
+    $('resolutionText').hidden = !text;
+    if (text && !$('resolutionModal').hidden) $('resolutionModal').hidden = true;
+    $('resolutionBtn').hidden = !!text;
+    $('resolutionSub').textContent = text ? fmtLong(tKey) + ' · 오늘은 이 한마디로.' : '오늘 하루를 시작하는 한마디를 남겨 보세요.';
+  }
+  function openResolutionModal() {
+    $('resolutionModalDate').textContent = fmtLong(todayKey());
+    $('resolutionInput').value = '';
+    $('resolutionModal').hidden = false;
+    setTimeout(function () { $('resolutionInput').focus(); }, 50);
+  }
+  function closeResolutionModal(later) {
+    $('resolutionModal').hidden = true;
+    if (later) { try { sessionStorage.setItem(RESOLUTION_LATER_KEY, todayKey()); } catch (e) { /* 무시 */ } }
+  }
+  function maybeAskResolution() {
+    var tKey = todayKey();
+    if (resolutionOf(tKey)) return;
+    var later = '';
+    try { later = sessionStorage.getItem(RESOLUTION_LATER_KEY) || ''; } catch (e) { /* 무시 */ }
+    if (later === tKey) return;
+    openResolutionModal();
+  }
+  function bindResolution() {
+    $('resolutionBtn').addEventListener('click', openResolutionModal);
+    $('resolutionLaterBtn').addEventListener('click', function () { closeResolutionModal(true); });
+    $('resolutionBackdrop').addEventListener('click', function () { closeResolutionModal(true); });
+    $('resolutionForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = $('resolutionInput').value.trim();
+      if (!v) { toast('한마디만 적어 주세요.', true); return; }
+      var tKey = todayKey();
+      if (resolutionOf(tKey)) { closeResolutionModal(false); renderResolution(); return; }
+      if (!data.resolutions) data.resolutions = {};
+      data.resolutions[tKey] = { text: v, updatedAt: now() };
+      save();
+      closeResolutionModal(false);
+      renderResolution();
+      toast('🔥 오늘의 각오를 새겼어요.');
+    });
+    $('resolutionInput').addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); $('resolutionForm').requestSubmit(); }
+    });
   }
 
   function schedulePush() {
@@ -2181,15 +2235,43 @@
       svg.appendChild(line);
     });
   }
-  function addMapNode(p, x, y, text) {
-    text = (text == null ? prompt('키워드') : text);
-    if (text == null) return null;
-    text = String(text).trim(); if (!text) return null;
-    var n = { id: M.uid(), text: text, x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)), color: '' };
-    mapOf(p).nodes.push(n);
+  // 새 키워드: 그 자리에 입력 칸을 띄워 바로 적는다 (데스크톱 앱에는 prompt 창이 없다)
+  function addMapNode(p, x, y) {
+    var n = { id: M.uid(), text: '', x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)), color: '' };
     mapState.selected = n.id;
-    saveMap(p); renderMap(p);
+    editMapNodeInline(p, n, true);
     return n;
+  }
+  function editMapNodeInline(p, n, isNew) {
+    var wrap = $('mapNodes');
+    var existing = wrap.querySelector('.map-node[data-id="' + n.id + '"]');
+    var input = el('input', 'map-node map-node-input'); input.type = 'text'; input.maxLength = 40;
+    input.value = n.text; input.placeholder = '키워드';
+    input.style.left = n.x + 'px'; input.style.top = n.y + 'px';
+    if (existing) existing.replaceWith(input); else wrap.appendChild(input);
+    input.focus();
+    var done = false;
+    function finish(saveIt) {
+      if (done) return; done = true;
+      var v = input.value.trim();
+      if (saveIt && v) {
+        n.text = v;
+        if (isNew) mapOf(p).nodes.push(n);
+        saveMap(p);
+      } else if (!isNew) {
+        /* 취소: 그대로 */
+      } else {
+        mapState.selected = null;
+      }
+      renderMap(p);
+    }
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+      e.stopPropagation();
+    });
+    input.addEventListener('blur', function () { finish(true); });
+    input.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
   }
   function bindMap() {
     var nodes = $('mapNodes');
@@ -2230,10 +2312,7 @@
       e.stopPropagation();
       var p = currentMapProject(); if (!p) return;
       var n = mapNode(p, d.dataset.id); if (!n) return;
-      var v = prompt('키워드 수정', n.text);
-      if (v == null) return;
-      v = v.trim(); if (!v) return;
-      n.text = v; saveMap(p); renderMap(p);
+      editMapNodeInline(p, n, false);
     });
     // 끌어서 이동 (마우스·터치 공통)
     nodes.addEventListener('pointerdown', function (e) {
@@ -2430,7 +2509,7 @@
     var d = new Date();
     var start = new Date(d.getFullYear(), 0, 1);
     var dayOfYear = Math.floor((d - start) / 86400000);
-    $('dailyEmph').textContent = EMPH_LINES[dayOfYear % EMPH_LINES.length];
+    renderResolution();
     // 로고·아이콘: 다섯 장을 하루에 한 장씩 돌아가며 쓴다 (데스크톱 앱 창 아이콘도 같은 순서)
     var n = (dayOfYear % LOGO_COUNT) + 1;
     var small = 'assets/logo-' + n + '.png';
@@ -2474,6 +2553,7 @@
     bindTaskLinking();
     bindNotesFold();
     bindMap();
+    bindResolution();
     if (window.plannerDesktop) document.body.classList.add('desktop');
 
     // 달력
@@ -2802,8 +2882,10 @@
     if (window.__plannerHealed) window.__plannerHealed();
     // 날짜가 바뀌면(자정 경과) 헤더와 오늘 표시를 갱신
     flushLinkedLogs();
+    // 하루 처음 열면 오늘의 각오를 묻는다 (다른 기기에서 이미 적었으면 동기화 뒤 사라진다)
+    setTimeout(maybeAskResolution, 1200);
     setInterval(function () {
-      if ($('todayDate').textContent !== fmtLong(todayKey())) { flushLinkedLogs(); renderAll(); }
+      if ($('todayDate').textContent !== fmtLong(todayKey())) { flushLinkedLogs(); renderAll(); maybeAskResolution(); }
     }, 60000);
   }
 
