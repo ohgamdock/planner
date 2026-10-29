@@ -1,0 +1,29 @@
+# 맥용 설치 파일(.dmg) 만들기 — 깃허브가 빌려주는 맥에서 돌아간다.
+# 실행: 깃허브 저장소 → Actions → "맥 설치 파일 만들기" → Run workflow
+# 결과: 작업이 끝나면 같은 페이지 아래 Artifacts 에서 내려받기
+name: 맥 설치 파일 만들기
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: 맥 설치 파일 빌드 (서명 없음)
+        run: npx electron-builder --mac --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-dmg
+          path: dist/*.dmg
+          if-no-files-found: error

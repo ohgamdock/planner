@@ -1332,3 +1332,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { box-shadow: 
 .pd-status .tab.is-active { color: var(--green); }
 ::selection { background: color-mix(in srgb, var(--green) 25%, white); }
 html[data-theme="dark"] ::selection { background: color-mix(in srgb, var(--green) 40%, black); }
+/* 맥: 왼쪽 위 창 버튼(신호등) 자리를 비워 둔다 */
+body.desktop.mac .topbar { padding-left: 84px; }
+body.desktop.mac .topbar-right { padding-right: 16px; }

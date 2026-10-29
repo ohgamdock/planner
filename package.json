@@ -9,7 +9,8 @@
     "start": "electron .",
     "serve": "node server.js",
     "dist": "electron-builder --win",
-    "dist:portable": "electron-builder --win portable"
+    "dist:portable": "electron-builder --win portable",
+    "dist:mac": "electron-builder --mac"
   },
   "devDependencies": {
     "@capacitor/android": "^7.6.9",
@@ -66,6 +67,23 @@
     },
     "portable": {
       "artifactName": "계획비슷한걸-다이어리-바로실행-${version}.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/logo-1-full.png",
+      "artifactName": "계획비슷한걸-다이어리-맥-${arch}-${version}.${ext}"
+    },
+    "dmg": {
+      "title": "계획 다이어리"
     }
   }
 }

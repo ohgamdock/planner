@@ -2693,7 +2693,7 @@
     bindTitle();
     bindMobileNav();
     bindTheme();
-    if (window.plannerDesktop) document.body.classList.add('desktop');
+    if (window.plannerDesktop) { document.body.classList.add('desktop'); if (/Mac/i.test(navigator.platform)) document.body.classList.add('mac'); }
 
     // 달력
     $('calendarGrid').addEventListener('click', function (e) {
