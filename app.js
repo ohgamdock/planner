@@ -2592,7 +2592,7 @@
     document.body.classList.remove('secret-open');
     stopStars();
     secret.key = null; secret.entries = null; secret.current = null;
-    $('secretList').innerHTML = ''; $('secretText').value = '';
+    $('secretList').innerHTML = ''; $('secretText').value = ''; $('secretTitle').value = '';
     $('secretPw1').value = ''; $('secretPw2').value = ''; $('secretPw').value = '';
   }
   function saveSecret() {
@@ -2602,31 +2602,47 @@
       save();
     });
   }
+  function secretDateOf(e) { return e.date || keyOf(new Date(e.createdAt || e.updatedAt || now())); }
   function renderSecretList() {
     var list = $('secretList');
     list.innerHTML = '';
-    var items = secret.entries.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; });
-    if (!items.length) { list.appendChild(el('li', 'empty', '아직 비밀이 없어요. 오른쪽에 첫 글을 남겨 보세요.')); return; }
+    var items = secret.entries.slice().sort(function (a, b) { return secretDateOf(b).localeCompare(secretDateOf(a)) || b.updatedAt - a.updatedAt; });
+    $('secretCount').textContent = items.length ? '봉인된 기록 ' + items.length + '개' : '아직 아무것도 봉인되지 않았다';
+    if (!items.length) { list.appendChild(el('li', 'empty', '첫 기록을 남기면 여기에 쌓입니다.')); return; }
+    var lastMonth = '';
     items.forEach(function (e) {
+      var dk = secretDateOf(e);
+      var month = dk.slice(0, 7);
+      if (month !== lastMonth) { lastMonth = month; list.appendChild(el('li', 'secret-month', month.replace('-', '년 ') + '월')); }
       var li = el('li', 'secret-item' + (secret.current === e.id ? ' is-active' : ''));
       li.dataset.id = e.id;
-      var d = new Date(e.updatedAt);
-      li.appendChild(el('div', 'secret-date', d.getFullYear() + '.' + (d.getMonth() + 1) + '.' + d.getDate()));
-      li.appendChild(el('div', 'secret-preview', (e.text || '').replace(/\s+/g, ' ').slice(0, 40) || '(빈 글)'));
+      var d = parseKey(dk);
+      var top = el('div', 'secret-item-top');
+      top.appendChild(el('span', 'secret-date', d.getDate() + '일 ' + WEEKDAYS[d.getDay()]));
+      if (e.mood) top.appendChild(el('span', 'secret-mood', e.mood));
+      li.appendChild(top);
+      li.appendChild(el('div', 'secret-title', e.title || '(제목 없음)'));
+      li.appendChild(el('div', 'secret-preview', (e.text || '').replace(/\s+/g, ' ').slice(0, 48)));
       list.appendChild(li);
     });
+  }
+  function secretMeta() {
+    var n = $('secretText').value.length;
+    $('secretMeta').textContent = (secret.current ? '봉인된 기록 수정 중' : '새 기록') + ' · ' + n + '자';
   }
   function openSecretEntry(id) {
     var e = secret.entries.filter(function (x) { return x.id === id; })[0];
     secret.current = e ? e.id : null;
     $('secretText').value = e ? e.text : '';
-    $('secretEditorTitle').textContent = e ? new Date(e.updatedAt).toLocaleString('ko-KR') : '새 비밀';
+    $('secretTitle').value = e ? (e.title || '') : '';
+    $('secretMood').value = e ? (e.mood || '') : '';
+    $('secretDate').value = e ? secretDateOf(e) : todayKey();
+    secretMeta();
     renderSecretList();
   }
   function enterSecretDiary() {
     $('secretSetup').hidden = true; $('secretUnlock').hidden = true; $('secretDiary').hidden = false;
-    secret.current = null; $('secretText').value = ''; $('secretEditorTitle').textContent = '새 비밀';
-    renderSecretList();
+    openSecretEntry(null);
     setTimeout(function () { $('secretText').focus(); }, 80);
   }
   function bindSecret() {
@@ -2643,7 +2659,7 @@
           return encryptText(key, '[]').then(function (blob) {
             data.secret = { salt: b64(salt), check: check, blob: blob, updatedAt: now() };
             save();
-            toast('🔐 비밀 일기가 생겼어요. 비밀번호를 잊으면 되찾을 수 없어요.');
+            toast('심연이 열렸다. 비밀번호를 잊으면 아무도 돌아올 수 없다.');
             enterSecretDiary();
           });
         });
@@ -2665,7 +2681,7 @@
       }).catch(function () {
         $('secretPw').value = '';
         $('secretUnlock').classList.remove('shake'); void $('secretUnlock').offsetWidth; $('secretUnlock').classList.add('shake');
-        toast('비밀번호가 달라요.', true);
+        toast('…그 말이 아니다.', true);
       });
     });
     $('secretCloseBtn').addEventListener('click', closeSecret);
@@ -2677,26 +2693,27 @@
       var text = $('secretText').value;
       if (!text.trim()) { toast('내용을 적어 주세요.', true); return; }
       var t = now();
+      var fields = { title: $('secretTitle').value.trim(), mood: $('secretMood').value, date: /^\d{4}-\d{2}-\d{2}$/.test($('secretDate').value) ? $('secretDate').value : todayKey() };
       if (secret.current) {
         var e = secret.entries.filter(function (x) { return x.id === secret.current; })[0];
-        if (e) { e.text = text; e.updatedAt = t; }
+        if (e) { e.text = text; e.title = fields.title; e.mood = fields.mood; e.date = fields.date; e.updatedAt = t; }
       } else {
-        var n = { id: M.uid(), text: text, createdAt: t, updatedAt: t };
+        var n = { id: M.uid(), text: text, title: fields.title, mood: fields.mood, date: fields.date, createdAt: t, updatedAt: t };
         secret.entries.push(n); secret.current = n.id;
       }
-      saveSecret().then(function () { renderSecretList(); $('secretEditorTitle').textContent = new Date(t).toLocaleString('ko-KR'); toast('🔐 비밀을 잠가 두었어요.'); });
+      saveSecret().then(function () { renderSecretList(); secretMeta(); toast('봉인했다.'); });
     });
     $('secretDeleteBtn').addEventListener('click', function () {
       if (!secret.current) return;
       if (!confirm('이 비밀을 지울까요? 되돌릴 수 없어요.')) return;
       secret.entries = secret.entries.filter(function (x) { return x.id !== secret.current; });
-      secret.current = null; $('secretText').value = '';
-      saveSecret().then(renderSecretList);
+      saveSecret().then(function () { openSecretEntry(null); });
     });
     $('secretList').addEventListener('click', function (e) {
       var li = e.target.closest('.secret-item'); if (li) openSecretEntry(li.dataset.id);
     });
     $('secretText').addEventListener('keydown', function (e) { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); $('secretSaveBtn').click(); } });
+    $('secretText').addEventListener('input', secretMeta);
   }
   // 별·은하수 배경 (캔버스)
   function startStars() {
@@ -2705,7 +2722,7 @@
     var stars = [], shooting = [];
     function resize() { cv.width = cv.clientWidth * (window.devicePixelRatio || 1); cv.height = cv.clientHeight * (window.devicePixelRatio || 1); }
     resize();
-    for (var i = 0; i < 260; i++) stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.6 + 0.3, tw: Math.random() * Math.PI * 2, sp: 0.004 + Math.random() * 0.02, drift: (Math.random() - 0.5) * 0.00008 });
+    for (var i = 0; i < 180; i++) stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.2 + 0.2, tw: Math.random() * Math.PI * 2, sp: 0.004 + Math.random() * 0.02, drift: (Math.random() - 0.5) * 0.00008 });
     var t0 = performance.now();
     function frame(t) {
       if ($('secretLayer').hidden) return;
@@ -2713,14 +2730,14 @@
       ctx.clearRect(0, 0, W, H);
       stars.forEach(function (s) {
         s.tw += s.sp; s.x += s.drift; if (s.x < 0) s.x += 1; if (s.x > 1) s.x -= 1;
-        var a = 0.45 + 0.55 * Math.sin(s.tw);
+        var a = 0.12 + 0.3 * Math.max(0, Math.sin(s.tw));
         ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r * dpr, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')'; ctx.fill();
+        ctx.fillStyle = 'rgba(190,205,215,' + a.toFixed(2) + ')'; ctx.fill();
       });
-      if (Math.random() < 0.012) shooting.push({ x: Math.random() * W, y: Math.random() * H * 0.5, vx: -(6 + Math.random() * 6) * dpr, vy: (3 + Math.random() * 3) * dpr, life: 1 });
+      if (Math.random() < 0.004) shooting.push({ x: Math.random() * W, y: Math.random() * H * 0.6, vx: -(3 + Math.random() * 3) * dpr, vy: (1.5 + Math.random() * 2) * dpr, life: 0.6 });
       shooting = shooting.filter(function (m) { return m.life > 0; });
       shooting.forEach(function (m) {
-        ctx.strokeStyle = 'rgba(255,255,255,' + m.life.toFixed(2) + ')'; ctx.lineWidth = 2 * dpr;
+        ctx.strokeStyle = 'rgba(150,170,180,' + m.life.toFixed(2) + ')'; ctx.lineWidth = 1.2 * dpr;
         ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 6, m.y - m.vy * 6); ctx.stroke();
         m.x += m.vx; m.y += m.vy; m.life -= 0.02;
       });

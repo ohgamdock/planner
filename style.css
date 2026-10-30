@@ -1390,3 +1390,53 @@ body.secret-open { overflow: hidden; }
   .secret-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
   .secret-item { flex: 0 0 170px; }
 }
+
+/* ================= 심연: 어둡고 서늘하게 (비밀 일기 테마 덮어쓰기) ================= */
+.secret-layer { color: #C9CFD4; font-family: "Noto Serif KR", "Nanum Myeongjo", "Batang", "Apple SD Gothic Neo", "Malgun Gothic", serif; }
+.secret-space { background: radial-gradient(ellipse at 50% 60%, #07090C 0%, #030405 60%, #000 100%); }
+.nebula { opacity: .22; }
+.nebula.n1 { background: radial-gradient(circle, rgba(70, 20, 30, .9) 0%, rgba(70, 20, 30, .3) 30%, transparent 65%); animation-duration: 46s; }
+.nebula.n2 { background: radial-gradient(circle, rgba(10, 50, 60, .8) 0%, rgba(10, 50, 60, .25) 30%, transparent 65%); animation-duration: 58s; }
+.nebula.n3 { background: radial-gradient(circle, rgba(40, 30, 70, .7) 0%, rgba(40, 30, 70, .2) 30%, transparent 65%); animation-duration: 70s; }
+/* 심연의 눈: 천천히 숨 쉬는 희미한 붉은 빛 */
+.abyss-eye { position: absolute; left: 50%; top: 42%; width: 60vmin; height: 60vmin; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 0, 10, .18) 0%, rgba(120, 0, 10, .08) 30%, transparent 62%); animation: abyss-breathe 9s ease-in-out infinite; }
+.abyss-fog { position: absolute; inset: -20%; background:
+  radial-gradient(ellipse 40% 25% at 20% 70%, rgba(255,255,255,.035), transparent 70%),
+  radial-gradient(ellipse 50% 30% at 75% 30%, rgba(255,255,255,.03), transparent 70%),
+  radial-gradient(ellipse 35% 20% at 60% 85%, rgba(255,255,255,.025), transparent 70%);
+  animation: abyss-fog 50s linear infinite alternate; }
+.abyss-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,.75) 100%); animation: abyss-flicker 7s steps(1, end) infinite; }
+@keyframes abyss-breathe { 0%, 100% { transform: translate(-50%, -50%) scale(.9); opacity: .6; } 50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; } }
+@keyframes abyss-fog { from { transform: translate(-3%, 0) rotate(0deg); } to { transform: translate(3%, -2%) rotate(2deg); } }
+@keyframes abyss-flicker { 0%, 91%, 93%, 100% { opacity: 1; } 92% { opacity: .82; } 96% { opacity: .9; } 96.5% { opacity: 1; } }
+.secret-card, .secret-diary { background: rgba(5, 6, 8, .78); border: 1px solid rgba(140, 150, 160, .14); box-shadow: 0 0 80px -20px rgba(120, 0, 10, .35), inset 0 0 60px rgba(0, 0, 0, .6); backdrop-filter: blur(6px); border-radius: 10px; }
+.secret-card h2, .secret-diary h2 { color: #D8DEE3; text-shadow: 0 0 14px rgba(120, 0, 10, .6), 0 0 2px rgba(255,255,255,.3); letter-spacing: .12em; font-weight: 600; animation: abyss-text 6s ease-in-out infinite; }
+@keyframes abyss-text { 0%, 100% { opacity: 1; } 50% { opacity: .82; } }
+.secret-sub { color: #8A939B; }
+.secret-sub.tight { margin: 2px 0 0; font-size: 12px; letter-spacing: .06em; }
+.secret-layer input, .secret-layer textarea, .secret-layer select { background: rgba(0,0,0,.45); color: #E3E7EA; border: 1px solid rgba(140, 150, 160, .22); border-radius: 6px; }
+.secret-layer input::placeholder, .secret-layer textarea::placeholder { color: #5E676E; }
+.secret-layer input:focus-visible, .secret-layer textarea:focus-visible, .secret-layer select:focus-visible { border-color: rgba(160, 30, 40, .7); box-shadow: 0 0 0 3px rgba(120, 0, 10, .25); }
+.btn.secret-btn { background: linear-gradient(180deg, #3A0C12, #1C0507); color: #E8D5D5; border: 1px solid rgba(160, 30, 40, .5); box-shadow: 0 0 18px rgba(120, 0, 10, .35); letter-spacing: .1em; border-radius: 6px; }
+.btn.secret-btn:hover { filter: brightness(1.25); }
+.btn.secret-ghost { background: rgba(255,255,255,.03); color: #B8C0C6; border: 1px solid rgba(140, 150, 160, .2); border-radius: 6px; }
+.btn.secret-ghost.danger { color: #C97A7A; }
+.secret-close { color: #7D868D; }
+.secret-item { border: 1px solid rgba(140, 150, 160, .12); background: rgba(255,255,255,.02); border-radius: 6px; }
+.secret-item:hover { background: rgba(255,255,255,.05); }
+.secret-item.is-active { border-color: rgba(160, 30, 40, .6); background: rgba(120, 0, 10, .14); }
+.secret-month { font-size: 11px; letter-spacing: .12em; color: #6B747B; margin: 8px 2px 2px; text-transform: uppercase; }
+.secret-item-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.secret-date { color: #8A939B; font-size: 12px; }
+.secret-mood { font-size: 11px; color: #C97A7A; border: 1px solid rgba(201, 122, 122, .35); border-radius: 999px; padding: 0 7px; }
+.secret-title { color: #E3E7EA; font-weight: 600; font-size: 14px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.secret-preview { color: #7D868D; font-size: 12.5px; }
+.secret-fields { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; }
+.secret-fields input[type="date"], .secret-fields select { width: auto; min-height: 38px; font-size: 13px; color-scheme: dark; }
+.secret-editor textarea { font-size: 16px; line-height: 1.9; padding: 18px 20px; background: rgba(0,0,0,.5) repeating-linear-gradient(transparent 0 29px, rgba(140,150,160,.07) 29px 30px); }
+.secret-editor-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.secret-hint { color: #5E676E; }
+.secret-list .empty { color: #6B747B; }
+.secret-layer ::-webkit-scrollbar-thumb { background: #2A3035; }
+@media (max-width: 760px) { .secret-fields { grid-template-columns: 1fr 1fr; } .secret-fields input[type="text"] { grid-column: 1 / -1; } }
