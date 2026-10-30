@@ -1440,3 +1440,21 @@ body.secret-open { overflow: hidden; }
 .secret-list .empty { color: #6B747B; }
 .secret-layer ::-webkit-scrollbar-thumb { background: #2A3035; }
 @media (max-width: 760px) { .secret-fields { grid-template-columns: 1fr 1fr; } .secret-fields input[type="text"] { grid-column: 1 / -1; } }
+
+/* 심연을 아주 조금만 밝게 */
+.secret-space { background: radial-gradient(ellipse at 50% 60%, #0E1219 0%, #080A0F 60%, #030406 100%); }
+.nebula { opacity: .3; }
+.nebula.n2 { background: radial-gradient(circle, rgba(20, 70, 85, .8) 0%, rgba(20, 70, 85, .28) 30%, transparent 65%); }
+.nebula.n3 { background: radial-gradient(circle, rgba(60, 45, 100, .7) 0%, rgba(60, 45, 100, .22) 30%, transparent 65%); }
+.abyss-vignette { background: radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,.6) 100%); }
+.secret-card, .secret-diary { background: rgba(12, 14, 20, .78); border-color: rgba(150, 160, 175, .2); }
+.secret-layer { color: #D6DBE0; }
+.secret-card h2, .secret-diary h2 { color: #E8ECF0; }
+.secret-sub, .secret-date, .secret-preview { color: #9AA3AC; }
+.secret-layer input, .secret-layer textarea, .secret-layer select { background: rgba(255,255,255,.04); color: #ECEFF2; border-color: rgba(150, 160, 175, .26); }
+.secret-layer input::placeholder, .secret-layer textarea::placeholder { color: #737C85; }
+.secret-editor textarea { background: rgba(255,255,255,.035) repeating-linear-gradient(transparent 0 29px, rgba(150,160,175,.09) 29px 30px); }
+.secret-item { background: rgba(255,255,255,.035); border-color: rgba(150, 160, 175, .16); }
+.secret-title { color: #ECEFF2; }
+.secret-hint, .secret-month { color: #737C85; }
+.btn.secret-ghost { color: #C9D0D6; }
