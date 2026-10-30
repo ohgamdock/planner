@@ -1607,3 +1607,11 @@ body.desktop .secret-layer { padding-top: 52px; }
 body.desktop .secret-diary { height: min(80vh, 720px); }
 .fish-scene.is-bite ~ .fish-ui .fish-action { animation: bang .25s ease-in-out infinite alternate; }
 @media (max-width: 760px) { .fish-bottom { gap: 8px; padding: 0 10px; } .fish-action { min-width: 0; flex: 1; max-width: 240px; } }
+/* 도감 닫기 버튼: 창 버튼에 안 가리게 아래쪽에 고정 */
+.fish-dex-head { padding-right: 0; }
+.fish-dex-head #fishDexClose { display: none; }
+.fish-dex::after { content: ""; display: block; height: 80px; }
+.fish-dex-close-bar { position: fixed; left: 0; right: 0; bottom: calc(22px + env(safe-area-inset-bottom)); display: flex; justify-content: center; z-index: 6; pointer-events: none; }
+.fish-dex-close-bar .btn { pointer-events: auto; min-height: 48px; min-width: 180px; border-radius: 999px; box-shadow: 0 10px 30px -8px rgba(0,0,0,.5); }
+body.desktop .fish-dex { padding-top: 56px; }
+body.desktop .fish-result { padding-top: 56px; }

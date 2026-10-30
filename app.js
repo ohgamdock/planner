@@ -2669,6 +2669,7 @@
     $('fishAgainBtn').addEventListener('click', function () { $('fishResult').hidden = true; fishSet('idle'); });
     $('fishDexBtn').addEventListener('click', function () { renderFishDex(); $('fishDex').hidden = false; });
     $('fishDexClose').addEventListener('click', function () { $('fishDex').hidden = true; });
+    $('fishDexClose2').addEventListener('click', function () { $('fishDex').hidden = true; });
   }
 
   // ---------------------------------------------------------------- 파티 모드
