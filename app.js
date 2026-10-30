@@ -2515,6 +2515,162 @@
     });
   }
 
+  // ---------------------------------------------------------------- 낚시 게임 (빠른 기록에 "낚시낚시")
+  // 14종. 가중치로 확률을 정하고, 곰(f14)은 0.1%. 같은 녀석이 또 나올 수 있다.
+  var FISH = [
+    { id: 'f01', w: 120, rarity: '흔함' }, { id: 'f02', w: 120, rarity: '흔함' }, { id: 'f03', w: 110, rarity: '흔함' },
+    { id: 'f04', w: 100, rarity: '흔함' }, { id: 'f05', w: 100, rarity: '흔함' }, { id: 'f06', w: 90, rarity: '흔함' },
+    { id: 'f07', w: 80, rarity: '보통' }, { id: 'f08', w: 70, rarity: '보통' }, { id: 'f09', w: 60, rarity: '보통' },
+    { id: 'f10', w: 45, rarity: '희귀' }, { id: 'f11', w: 35, rarity: '희귀' }, { id: 'f12', w: 25, rarity: '희귀' },
+    { id: 'f13', w: 12, rarity: '전설' }, { id: 'f14', w: 0, rarity: '신화 (0.1%)' }
+  ];
+  var FISH_BEAR_RATE = 0.001;
+  var fish = { phase: 'idle', timer: null, biteAt: 0, caught: null };
+  function fishdex() { if (!data.fishdex || typeof data.fishdex !== 'object') data.fishdex = {}; return data.fishdex; }
+  function fishImg(id) { return 'assets/fish/' + id + '.jpg'; }
+  function pickFish() {
+    if (Math.random() < FISH_BEAR_RATE) return FISH[FISH.length - 1];
+    var pool = FISH.filter(function (f) { return f.w > 0; });
+    var total = pool.reduce(function (s, f) { return s + f.w; }, 0);
+    var r = Math.random() * total;
+    for (var i = 0; i < pool.length; i++) { r -= pool[i].w; if (r <= 0) return pool[i]; }
+    return pool[0];
+  }
+  function openFishing() {
+    $('fishLayer').hidden = false;
+    document.body.classList.add('fish-open');
+    $('fishResult').hidden = true; $('fishDex').hidden = true;
+    fishSet('idle');
+    renderFishDexCount();
+  }
+  function closeFishing() {
+    clearTimeout(fish.timer);
+    $('fishLayer').hidden = true;
+    document.body.classList.remove('fish-open');
+    fish.phase = 'idle';
+  }
+  function fishSet(phase) {
+    fish.phase = phase;
+    var btn = $('fishActionBtn');
+    $('fishBobber').hidden = phase === 'idle';
+    $('fishRipple').hidden = phase !== 'waiting' && phase !== 'bite';
+    $('fishBang').hidden = phase !== 'bite';
+    $('fishScene').classList.toggle('is-bite', phase === 'bite');
+    $('fishScene').classList.toggle('is-waiting', phase === 'waiting');
+    if (phase === 'idle') { btn.textContent = '🎣 던지기'; btn.disabled = false; $('fishSub').textContent = '던져서 입질이 오면 바로 당기세요.'; }
+    else if (phase === 'waiting') { btn.textContent = '… 기다리는 중'; btn.disabled = false; $('fishSub').textContent = '찌를 보세요. "!"가 뜨면 바로!'; }
+    else if (phase === 'bite') { btn.textContent = '‼ 당기기!'; btn.disabled = false; $('fishSub').textContent = '지금!!'; }
+    else if (phase === 'reel') { btn.textContent = '끌어올리는 중…'; btn.disabled = true; $('fishSub').textContent = '뭔가 무겁다…'; }
+  }
+  function fishCast() {
+    fishSet('waiting');
+    clearTimeout(fish.timer);
+    fish.timer = setTimeout(function () {
+      if (fish.phase !== 'waiting') return;
+      fishSet('bite');
+      fish.biteAt = now();
+      // 1.3초 안에 못 당기면 도망간다
+      fish.timer = setTimeout(function () {
+        if (fish.phase !== 'bite') return;
+        fishSet('idle');
+        $('fishSub').textContent = '놓쳤다… 다시 던져 보세요.';
+        toast('도망갔어요 🐟');
+      }, 1300);
+    }, 1800 + Math.random() * 4200);
+  }
+  function fishPull() {
+    if (fish.phase === 'waiting') {
+      // 너무 일찍 당기면 아무것도 없다
+      clearTimeout(fish.timer);
+      fishSet('idle');
+      $('fishSub').textContent = '너무 빨랐어요. 입질을 기다리세요.';
+      return;
+    }
+    if (fish.phase !== 'bite') return;
+    clearTimeout(fish.timer);
+    fishSet('reel');
+    fish.timer = setTimeout(function () {
+      var f = pickFish();
+      fish.caught = f;
+      showFishResult(f);
+    }, 900 + Math.random() * 600);
+  }
+  function showFishResult(f) {
+    var dex = fishdex();
+    var known = dex[f.id] && dex[f.id].name;
+    var t = now();
+    if (!dex[f.id]) dex[f.id] = { name: '', count: 0, firstAt: t, updatedAt: t };
+    dex[f.id].count += 1; dex[f.id].updatedAt = t;
+    save();
+    $('fishResultImg').src = fishImg(f.id);
+    $('fishRarity').textContent = f.rarity;
+    $('fishRarity').className = 'fish-rarity r-' + (f.id === 'f14' ? 'myth' : f.rarity === '전설' ? 'legend' : f.rarity === '희귀' ? 'rare' : f.rarity === '보통' ? 'mid' : 'common');
+    $('fishCard').classList.toggle('is-myth', f.id === 'f14');
+    if (known) {
+      $('fishResultTitle').textContent = dex[f.id].name;
+      $('fishResultSub').textContent = '또 잡았어요! 지금까지 ' + dex[f.id].count + '번째';
+      $('fishNameForm').hidden = true; $('fishResultActions').hidden = false;
+    } else {
+      $('fishResultTitle').textContent = '처음 보는 녀석!';
+      $('fishResultSub').textContent = f.id === 'f14' ? '0.1%의 기적… 이름을 지어 도감에 새기세요.' : '이름을 지어 도감에 등록하세요.';
+      $('fishNameInput').value = '';
+      $('fishNameForm').hidden = false; $('fishResultActions').hidden = true;
+      setTimeout(function () { $('fishNameInput').focus(); }, 100);
+    }
+    $('fishResult').hidden = false;
+    renderFishDexCount();
+  }
+  function renderFishDexCount() {
+    var dex = fishdex();
+    var n = FISH.filter(function (f) { return dex[f.id] && dex[f.id].name; }).length;
+    $('fishDexCount').textContent = n + '/' + FISH.length;
+  }
+  function renderFishDex() {
+    var grid = $('fishDexGrid');
+    grid.innerHTML = '';
+    var dex = fishdex();
+    FISH.forEach(function (f, i) {
+      var e = dex[f.id];
+      var card = el('div', 'dex-card' + (e && e.name ? '' : ' is-unknown') + (f.id === 'f14' ? ' is-myth' : ''));
+      var num = el('div', 'dex-num', 'No.' + pad2(i + 1));
+      card.appendChild(num);
+      var img = el('img'); img.alt = '';
+      img.src = fishImg(f.id);
+      card.appendChild(img);
+      card.appendChild(el('div', 'dex-name', e && e.name ? e.name : '???'));
+      card.appendChild(el('div', 'dex-meta', e && e.name ? f.rarity + ' · ' + e.count + '번 잡음' : f.rarity));
+      grid.appendChild(card);
+    });
+  }
+  function bindFishing() {
+    $('fishActionBtn').addEventListener('click', function () {
+      if (fish.phase === 'idle') fishCast(); else fishPull();
+    });
+    $('fishScene').addEventListener('click', function () { if (fish.phase === 'bite') fishPull(); });
+    $('fishCloseBtn').addEventListener('click', closeFishing);
+    document.addEventListener('keydown', function (e) {
+      if ($('fishLayer').hidden) return;
+      if (e.key === 'Escape') { if (!$('fishDex').hidden) $('fishDex').hidden = true; else if (!$('fishResult').hidden) { /* 이름 먼저 */ } else closeFishing(); }
+      if (e.key === ' ' && $('fishResult').hidden && $('fishDex').hidden && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('fishActionBtn').click(); }
+    });
+    $('fishNameForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = $('fishNameInput').value.trim();
+      if (!v) { toast('이름을 지어 주세요.', true); return; }
+      var dex = fishdex();
+      dex[fish.caught.id].name = v; dex[fish.caught.id].updatedAt = now();
+      save();
+      $('fishResultTitle').textContent = v;
+      $('fishResultSub').textContent = '도감에 등록했어요!';
+      $('fishNameForm').hidden = true; $('fishResultActions').hidden = false;
+      renderFishDexCount();
+      toast('📖 도감에 "' + v + '" 등록!');
+    });
+    $('fishAgainBtn').addEventListener('click', function () { $('fishResult').hidden = true; fishSet('idle'); });
+    $('fishDexBtn').addEventListener('click', function () { renderFishDex(); $('fishDex').hidden = false; });
+    $('fishDexClose').addEventListener('click', function () { $('fishDex').hidden = true; });
+  }
+
   // ---------------------------------------------------------------- 파티 모드
   // 빠른 기록 칸에 "파티파티"라고 적으면 클럽 테마가 켜지고, "그만!!!"이라고 적으면 원래대로 돌아온다.
   var PARTY_KEY = 'planner.v1.party';
@@ -2542,6 +2698,11 @@
     if (!text) return;
     if (/그만!!!/.test(text)) { if (partyOn) setParty(false); return; }
     if (/파티파티/.test(text) && !partyOn) setParty(true);
+    if (/낚시낚시/.test(text)) {
+      $('noteText').value = text.replace(/낚시낚시/g, '');
+      openFishing();
+      return;
+    }
     if (/비밀일기/.test(text)) {
       // 흔적이 남지 않게 입력한 글자는 지운다
       $('noteText').value = text.replace(/비밀일기/g, '');
@@ -2947,6 +3108,7 @@
     bindMobileNav();
     bindTheme();
     bindSecret();
+    bindFishing();
     if (window.plannerDesktop) { document.body.classList.add('desktop'); if (/Mac/i.test(navigator.platform)) document.body.classList.add('mac'); }
 
     // 달력

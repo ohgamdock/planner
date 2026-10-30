@@ -33,6 +33,7 @@
       notes: [],
       resolutions: {},
       secret: null,
+      fishdex: {},
       events: [],
       projects: { work: [], personal: [] },
       routines: [],
@@ -284,6 +285,14 @@
       });
     }
     d.notes = normList(raw.notes, normNote);
+    // 낚시 도감: 종류별 { name, count, firstAt, updatedAt }
+    if (isObj(raw.fishdex)) {
+      Object.keys(raw.fishdex).forEach(function (k) {
+        if (!/^f\d{2}$/.test(k)) return;
+        var f = raw.fishdex[k]; if (!isObj(f)) return;
+        d.fishdex[k] = { name: str(f.name).trim().slice(0, 30), count: Math.max(0, Math.floor(Number(f.count) || 0)), firstAt: num(f.firstAt, 0) || 0, updatedAt: num(f.updatedAt, 0) || 0 };
+      });
+    }
     // 비밀 일기: 비밀번호로 암호화된 덩어리만 저장한다 (내용은 서버도 모른다)
     if (isObj(raw.secret) && str(raw.secret.salt) && str(raw.secret.blob)) {
       d.secret = { salt: str(raw.secret.salt), check: str(raw.secret.check), blob: str(raw.secret.blob), updatedAt: num(raw.secret.updatedAt, 0) || 0 };
@@ -471,6 +480,16 @@
     });
 
     // 기록: 날짜 + 본문(+사진 길이) 기준으로 중복 제거
+    // 낚시 도감: 종류별로 잡은 수는 큰 쪽, 처음 잡은 때는 이른 쪽, 이름은 최신 쪽
+    [a.fishdex, b.fishdex].forEach(function (fd) {
+      Object.keys(fd).forEach(function (k) {
+        var cur = out.fishdex[k], f = fd[k];
+        if (!cur) { out.fishdex[k] = { name: f.name, count: f.count, firstAt: f.firstAt, updatedAt: f.updatedAt }; return; }
+        cur.count = Math.max(cur.count, f.count);
+        cur.firstAt = (cur.firstAt && f.firstAt) ? Math.min(cur.firstAt, f.firstAt) : (cur.firstAt || f.firstAt);
+        if (f.updatedAt > cur.updatedAt) { cur.name = f.name || cur.name; cur.updatedAt = f.updatedAt; }
+      });
+    });
     // 비밀 일기: 최신 덩어리 하나만
     if (a.secret || b.secret) out.secret = (!b.secret || (a.secret && a.secret.updatedAt >= b.secret.updatedAt)) ? a.secret : b.secret;
     // 각오: 먼저 적은 쪽(오래된 updatedAt)을 지킨다 — 적은 뒤에는 바꾸지 않는 규칙

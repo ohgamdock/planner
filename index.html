@@ -546,6 +546,59 @@
     </div>
   </div>
 
+  <!-- 낚시 게임: 빠른 기록에 "낚시낚시"라고 치면 열린다 -->
+  <div class="fish-layer" id="fishLayer" hidden>
+    <div class="fish-scene" id="fishScene">
+      <div class="fish-sky"><div class="fish-cloud c1"></div><div class="fish-cloud c2"></div><div class="fish-sun"></div></div>
+      <div class="fish-water">
+        <div class="fish-wave w1"></div><div class="fish-wave w2"></div>
+        <div class="fish-ripple" id="fishRipple" hidden></div>
+        <div class="fish-bobber" id="fishBobber" hidden></div>
+        <div class="fish-bang" id="fishBang" hidden>!</div>
+      </div>
+      <div class="fish-rod" id="fishRod"></div>
+    </div>
+    <div class="fish-ui">
+      <div class="fish-top">
+        <div>
+          <h2>🎣 낚시터</h2>
+          <p class="fish-sub" id="fishSub">던져서 입질이 오면 바로 당기세요.</p>
+        </div>
+        <div class="fish-top-tools">
+          <button type="button" class="btn ghost small" id="fishDexBtn">📖 도감 <span id="fishDexCount">0/14</span></button>
+          <button type="button" class="btn ghost small" id="fishCloseBtn">✕ 닫기</button>
+        </div>
+      </div>
+      <button type="button" class="btn primary fish-action" id="fishActionBtn">🎣 던지기</button>
+    </div>
+
+    <!-- 잡은 결과 -->
+    <div class="fish-result" id="fishResult" hidden>
+      <div class="fish-card" id="fishCard">
+        <div class="fish-rarity" id="fishRarity"></div>
+        <img id="fishResultImg" alt="">
+        <h3 id="fishResultTitle"></h3>
+        <p class="muted small" id="fishResultSub"></p>
+        <form id="fishNameForm" class="fish-name-form" hidden>
+          <input type="text" id="fishNameInput" maxlength="30" autocomplete="off" placeholder="이 녀석의 이름을 지어 주세요">
+          <button type="submit" class="btn primary">도감에 등록</button>
+        </form>
+        <div class="fish-result-actions" id="fishResultActions" hidden>
+          <button type="button" class="btn primary" id="fishAgainBtn">다시 던지기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 도감 -->
+    <div class="fish-dex" id="fishDex" hidden>
+      <div class="fish-dex-head">
+        <h3>📖 낚시 도감</h3>
+        <button type="button" class="btn ghost small" id="fishDexClose">✕ 닫기</button>
+      </div>
+      <div class="fish-dex-grid" id="fishDexGrid"></div>
+    </div>
+  </div>
+
   <!-- 비밀 일기: 빠른 기록에 "비밀일기"라고 치면 열리는 숨은 화면 -->
   <div class="secret-layer" id="secretLayer" hidden>
     <div class="secret-space" aria-hidden="true">

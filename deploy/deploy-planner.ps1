@@ -20,7 +20,7 @@ Write-Host "1) 파일 묶는 중..."
 $tar = Join-Path $env:TEMP "planner-deploy.tar"
 if (Test-Path $tar) { Remove-Item $tar -Force }
 Push-Location $root
-tar -cf $tar index.html style.css app.js merge.js server.js manifest.webmanifest sw.js assets/icon.png assets/icon-192.png assets/icon-512.png assets/icon-maskable-192.png assets/icon-maskable-512.png assets/logo-1.png assets/logo-2.png assets/logo-3.png assets/logo-4.png assets/logo-5.png assets/logo-1-full.png assets/logo-2-full.png assets/logo-3-full.png assets/logo-4-full.png assets/logo-5-full.png assets/party/cat-dance.mp4 assets/party/cat-dance.gif deploy/Dockerfile deploy/docker-compose.planner.yml deploy/Caddyfile.planner
+tar -cf $tar index.html style.css app.js merge.js server.js manifest.webmanifest sw.js assets/icon.png assets/icon-192.png assets/icon-512.png assets/icon-maskable-192.png assets/icon-maskable-512.png assets/logo-1.png assets/logo-2.png assets/logo-3.png assets/logo-4.png assets/logo-5.png assets/logo-1-full.png assets/logo-2-full.png assets/logo-3-full.png assets/logo-4-full.png assets/logo-5-full.png assets/party/cat-dance.mp4 assets/party/cat-dance.gif assets/fish deploy/Dockerfile deploy/docker-compose.planner.yml deploy/Caddyfile.planner
 Pop-Location
 
 Write-Host "2) 서버로 올리는 중..."

@@ -39,7 +39,8 @@
       "assets/*.png",
       "package.json",
       "assets/party/*",
-      "assets/*.ico"
+      "assets/*.ico",
+      "assets/fish/*"
     ],
     "win": {
       "icon": "assets/icon.ico",
