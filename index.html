@@ -546,6 +546,60 @@
     </div>
   </div>
 
+  <!-- 비밀 일기: 빠른 기록에 "비밀일기"라고 치면 열리는 숨은 화면 -->
+  <div class="secret-layer" id="secretLayer" hidden>
+    <div class="secret-space" aria-hidden="true">
+      <div class="nebula n1"></div><div class="nebula n2"></div><div class="nebula n3"></div>
+      <div class="milky"></div>
+      <canvas class="secret-stars" id="secretStars"></canvas>
+    </div>
+
+    <section class="secret-card" id="secretSetup" hidden>
+      <button type="button" class="secret-close" id="secretCloseBtn" aria-label="닫기">✕</button>
+      <h2>🔐 비밀 일기</h2>
+      <p class="secret-sub">처음이에요. 이 일기만의 비밀번호를 정해 주세요. 비밀번호를 잊으면 아무도 열 수 없어요.</p>
+      <form id="secretSetupForm" class="secret-form">
+        <input type="password" id="secretPw1" placeholder="비밀번호 (4자 이상)" autocomplete="new-password">
+        <input type="password" id="secretPw2" placeholder="비밀번호 한 번 더" autocomplete="new-password">
+        <button type="submit" class="btn secret-btn">비밀 일기 만들기</button>
+      </form>
+    </section>
+
+    <section class="secret-card" id="secretUnlock" hidden>
+      <button type="button" class="secret-close" id="secretCloseBtn2" aria-label="닫기">✕</button>
+      <h2>🔐 비밀 일기</h2>
+      <p class="secret-sub">비밀번호를 입력하면 열려요.</p>
+      <form id="secretUnlockForm" class="secret-form">
+        <input type="password" id="secretPw" placeholder="비밀번호" autocomplete="current-password">
+        <button type="submit" class="btn secret-btn">열기</button>
+      </form>
+    </section>
+
+    <section class="secret-diary" id="secretDiary" hidden>
+      <div class="secret-head">
+        <h2>🌌 비밀 일기</h2>
+        <div class="secret-head-tools">
+          <button type="button" class="btn secret-ghost" id="secretNewBtn">+ 새 비밀</button>
+          <button type="button" class="secret-close inline" id="secretCloseBtn3" aria-label="닫기">✕ 닫기</button>
+        </div>
+      </div>
+      <div class="secret-body">
+        <ul class="secret-list" id="secretList"></ul>
+        <div class="secret-editor">
+          <div class="secret-editor-head">
+            <span id="secretEditorTitle">새 비밀</span>
+            <div>
+              <button type="button" class="btn secret-ghost danger" id="secretDeleteBtn">삭제</button>
+              <button type="button" class="btn secret-btn" id="secretSaveBtn">잠그기</button>
+            </div>
+          </div>
+          <textarea id="secretText" placeholder="아무도 모르는 이야기를 여기에…"></textarea>
+          <p class="secret-hint">Ctrl+Enter 로 잠그기 · 닫으면 다시 찾을 수 없고, "비밀일기"라고 적어야만 열려요.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <!-- 오늘의 각오 적기 (하루 첫 실행) -->
   <div class="modal" id="resolutionModal" hidden>
     <div class="modal-backdrop" id="resolutionBackdrop"></div>

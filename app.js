@@ -2542,7 +2542,194 @@
     if (!text) return;
     if (/그만!!!/.test(text)) { if (partyOn) setParty(false); return; }
     if (/파티파티/.test(text) && !partyOn) setParty(true);
+    if (/비밀일기/.test(text)) {
+      // 흔적이 남지 않게 입력한 글자는 지운다
+      $('noteText').value = text.replace(/비밀일기/g, '');
+      openSecret();
+    }
   }
+
+  // ---------------------------------------------------------------- 비밀 일기 (숨은 화면)
+  // 빠른 기록에 "비밀일기"라고 치면 열린다. 내용은 비밀번호에서 만든 키로 암호화되어 저장되고,
+  // 닫으면 화면에서 사라지며 풀어 둔 내용도 메모리에서 지운다.
+  var secret = { key: null, entries: null, current: null, stars: null };
+  function b64(buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))); }
+  function unb64(s) { var bin = atob(s); var a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+  function deriveKey(password, salt) {
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']).then(function (base) {
+      return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: 120000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    });
+  }
+  function encryptText(key, text) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(text)).then(function (ct) {
+      return b64(iv) + '.' + b64(ct);
+    });
+  }
+  function decryptText(key, packed) {
+    var parts = packed.split('.');
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(parts[0]) }, key, unb64(parts[1])).then(function (pt) {
+      return new TextDecoder().decode(pt);
+    });
+  }
+  function secretSupported() { return !!(window.crypto && crypto.subtle && window.TextEncoder); }
+  function openSecret() {
+    if (!secretSupported()) { toast('이 환경에서는 비밀 일기를 쓸 수 없어요.', true); return; }
+    var layer = $('secretLayer');
+    layer.hidden = false;
+    document.body.classList.add('secret-open');
+    startStars();
+    var has = !!(data.secret && data.secret.blob);
+    $('secretSetup').hidden = has;
+    $('secretUnlock').hidden = !has;
+    $('secretDiary').hidden = true;
+    $('secretPw1').value = ''; $('secretPw2').value = ''; $('secretPw').value = '';
+    setTimeout(function () { (has ? $('secretPw') : $('secretPw1')).focus(); }, 80);
+  }
+  function closeSecret() {
+    $('secretLayer').hidden = true;
+    document.body.classList.remove('secret-open');
+    stopStars();
+    secret.key = null; secret.entries = null; secret.current = null;
+    $('secretList').innerHTML = ''; $('secretText').value = '';
+    $('secretPw1').value = ''; $('secretPw2').value = ''; $('secretPw').value = '';
+  }
+  function saveSecret() {
+    if (!secret.key || !secret.entries) return Promise.resolve();
+    return encryptText(secret.key, JSON.stringify(secret.entries)).then(function (blob) {
+      data.secret.blob = blob; data.secret.updatedAt = now();
+      save();
+    });
+  }
+  function renderSecretList() {
+    var list = $('secretList');
+    list.innerHTML = '';
+    var items = secret.entries.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+    if (!items.length) { list.appendChild(el('li', 'empty', '아직 비밀이 없어요. 오른쪽에 첫 글을 남겨 보세요.')); return; }
+    items.forEach(function (e) {
+      var li = el('li', 'secret-item' + (secret.current === e.id ? ' is-active' : ''));
+      li.dataset.id = e.id;
+      var d = new Date(e.updatedAt);
+      li.appendChild(el('div', 'secret-date', d.getFullYear() + '.' + (d.getMonth() + 1) + '.' + d.getDate()));
+      li.appendChild(el('div', 'secret-preview', (e.text || '').replace(/\s+/g, ' ').slice(0, 40) || '(빈 글)'));
+      list.appendChild(li);
+    });
+  }
+  function openSecretEntry(id) {
+    var e = secret.entries.filter(function (x) { return x.id === id; })[0];
+    secret.current = e ? e.id : null;
+    $('secretText').value = e ? e.text : '';
+    $('secretEditorTitle').textContent = e ? new Date(e.updatedAt).toLocaleString('ko-KR') : '새 비밀';
+    renderSecretList();
+  }
+  function enterSecretDiary() {
+    $('secretSetup').hidden = true; $('secretUnlock').hidden = true; $('secretDiary').hidden = false;
+    secret.current = null; $('secretText').value = ''; $('secretEditorTitle').textContent = '새 비밀';
+    renderSecretList();
+    setTimeout(function () { $('secretText').focus(); }, 80);
+  }
+  function bindSecret() {
+    $('noteText').addEventListener('input', function () { /* checkPartyWords 가 처리 */ });
+    $('secretSetupForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var p1 = $('secretPw1').value, p2 = $('secretPw2').value;
+      if (p1.length < 4) { toast('비밀번호는 4자 이상으로 해 주세요.', true); return; }
+      if (p1 !== p2) { toast('두 비밀번호가 달라요. 다시 확인해 주세요.', true); $('secretPw2').value = ''; $('secretPw2').focus(); return; }
+      var salt = crypto.getRandomValues(new Uint8Array(16));
+      deriveKey(p1, salt).then(function (key) {
+        secret.key = key; secret.entries = [];
+        return encryptText(key, 'ok').then(function (check) {
+          return encryptText(key, '[]').then(function (blob) {
+            data.secret = { salt: b64(salt), check: check, blob: blob, updatedAt: now() };
+            save();
+            toast('🔐 비밀 일기가 생겼어요. 비밀번호를 잊으면 되찾을 수 없어요.');
+            enterSecretDiary();
+          });
+        });
+      });
+    });
+    $('secretUnlockForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var pw = $('secretPw').value;
+      if (!pw) return;
+      deriveKey(pw, unb64(data.secret.salt)).then(function (key) {
+        return decryptText(key, data.secret.check).then(function (ok) {
+          if (ok !== 'ok') throw new Error('bad');
+          secret.key = key;
+          return decryptText(key, data.secret.blob);
+        });
+      }).then(function (json) {
+        secret.entries = JSON.parse(json || '[]');
+        enterSecretDiary();
+      }).catch(function () {
+        $('secretPw').value = '';
+        $('secretUnlock').classList.remove('shake'); void $('secretUnlock').offsetWidth; $('secretUnlock').classList.add('shake');
+        toast('비밀번호가 달라요.', true);
+      });
+    });
+    $('secretCloseBtn').addEventListener('click', closeSecret);
+    $('secretCloseBtn2').addEventListener('click', closeSecret);
+    $('secretCloseBtn3').addEventListener('click', closeSecret);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('secretLayer').hidden) closeSecret(); });
+    $('secretNewBtn').addEventListener('click', function () { openSecretEntry(null); $('secretText').focus(); });
+    $('secretSaveBtn').addEventListener('click', function () {
+      var text = $('secretText').value;
+      if (!text.trim()) { toast('내용을 적어 주세요.', true); return; }
+      var t = now();
+      if (secret.current) {
+        var e = secret.entries.filter(function (x) { return x.id === secret.current; })[0];
+        if (e) { e.text = text; e.updatedAt = t; }
+      } else {
+        var n = { id: M.uid(), text: text, createdAt: t, updatedAt: t };
+        secret.entries.push(n); secret.current = n.id;
+      }
+      saveSecret().then(function () { renderSecretList(); $('secretEditorTitle').textContent = new Date(t).toLocaleString('ko-KR'); toast('🔐 비밀을 잠가 두었어요.'); });
+    });
+    $('secretDeleteBtn').addEventListener('click', function () {
+      if (!secret.current) return;
+      if (!confirm('이 비밀을 지울까요? 되돌릴 수 없어요.')) return;
+      secret.entries = secret.entries.filter(function (x) { return x.id !== secret.current; });
+      secret.current = null; $('secretText').value = '';
+      saveSecret().then(renderSecretList);
+    });
+    $('secretList').addEventListener('click', function (e) {
+      var li = e.target.closest('.secret-item'); if (li) openSecretEntry(li.dataset.id);
+    });
+    $('secretText').addEventListener('keydown', function (e) { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); $('secretSaveBtn').click(); } });
+  }
+  // 별·은하수 배경 (캔버스)
+  function startStars() {
+    var cv = $('secretStars');
+    var ctx = cv.getContext('2d');
+    var stars = [], shooting = [];
+    function resize() { cv.width = cv.clientWidth * (window.devicePixelRatio || 1); cv.height = cv.clientHeight * (window.devicePixelRatio || 1); }
+    resize();
+    for (var i = 0; i < 260; i++) stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.6 + 0.3, tw: Math.random() * Math.PI * 2, sp: 0.004 + Math.random() * 0.02, drift: (Math.random() - 0.5) * 0.00008 });
+    var t0 = performance.now();
+    function frame(t) {
+      if ($('secretLayer').hidden) return;
+      var W = cv.width, H = cv.height, dpr = window.devicePixelRatio || 1;
+      ctx.clearRect(0, 0, W, H);
+      stars.forEach(function (s) {
+        s.tw += s.sp; s.x += s.drift; if (s.x < 0) s.x += 1; if (s.x > 1) s.x -= 1;
+        var a = 0.45 + 0.55 * Math.sin(s.tw);
+        ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r * dpr, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')'; ctx.fill();
+      });
+      if (Math.random() < 0.012) shooting.push({ x: Math.random() * W, y: Math.random() * H * 0.5, vx: -(6 + Math.random() * 6) * dpr, vy: (3 + Math.random() * 3) * dpr, life: 1 });
+      shooting = shooting.filter(function (m) { return m.life > 0; });
+      shooting.forEach(function (m) {
+        ctx.strokeStyle = 'rgba(255,255,255,' + m.life.toFixed(2) + ')'; ctx.lineWidth = 2 * dpr;
+        ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 6, m.y - m.vy * 6); ctx.stroke();
+        m.x += m.vx; m.y += m.vy; m.life -= 0.02;
+      });
+      secret.stars = requestAnimationFrame(frame);
+    }
+    window.addEventListener('resize', resize);
+    secret.stars = requestAnimationFrame(frame);
+  }
+  function stopStars() { if (secret.stars) cancelAnimationFrame(secret.stars); secret.stars = null; }
   function bindParty() {
     $('noteText').addEventListener('input', function () { checkPartyWords(this.value); });
     try { if (sessionStorage.getItem(PARTY_KEY) === '1') setParty(true, true); } catch (e) { /* 무시 */ }
@@ -2693,6 +2880,7 @@
     bindTitle();
     bindMobileNav();
     bindTheme();
+    bindSecret();
     if (window.plannerDesktop) { document.body.classList.add('desktop'); if (/Mac/i.test(navigator.platform)) document.body.classList.add('mac'); }
 
     // 달력
