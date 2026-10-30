@@ -1554,3 +1554,56 @@ body.secret-open { overflow: hidden; }
 .dex-card.is-myth:not(.is-unknown) { border-color: #FFD24A; box-shadow: 0 0 18px rgba(255, 179, 71, .5); }
 body.fish-open { overflow: hidden; }
 @media (max-width: 760px) { .fish-top h2 { font-size: 18px; } .fish-dex-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; } .dex-card { padding: 6px; } .fish-action { min-width: 200px; } }
+
+/* ================= 낚시터 2: SVG 낚싯대·찌·물보라 애니메이션, 아래 버튼 줄 ================= */
+.fish-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rod { transform-origin: 14px 60px; transition: transform .25s ease-out; }
+.rod-body, .rod-tip { transition: d .3s; }
+.fish-scene.is-cast .rod { animation: rod-cast .7s cubic-bezier(.3,1.4,.4,1); }
+@keyframes rod-cast { 0% { transform: rotate(-28deg); } 35% { transform: rotate(14deg); } 70% { transform: rotate(-4deg); } 100% { transform: rotate(0deg); } }
+.fish-scene.is-bite .rod { animation: rod-tug .18s ease-in-out infinite alternate; }
+@keyframes rod-tug { from { transform: rotate(0deg); } to { transform: rotate(5deg); } }
+.fish-scene.is-reel .rod { animation: rod-reel .9s ease-in-out infinite; }
+@keyframes rod-reel { 0%, 100% { transform: rotate(6deg); } 50% { transform: rotate(14deg); } }
+.fish-scene.is-reel .rod-reel { animation: reel-spin .25s linear infinite; transform-origin: 20px 52px; }
+@keyframes reel-spin { to { transform: rotate(360deg); } }
+.line, .bobber-group { opacity: 0; transition: opacity .2s; }
+.fish-scene.is-cast .line, .fish-scene.is-waiting .line, .fish-scene.is-bite .line, .fish-scene.is-reel .line,
+.fish-scene.is-cast .bobber-group, .fish-scene.is-waiting .bobber-group, .fish-scene.is-bite .bobber-group, .fish-scene.is-reel .bobber-group { opacity: 1; }
+.bobber-group { transform-origin: 58px 37px; }
+.fish-scene.is-cast .bobber-group { animation: bobber-fly .7s cubic-bezier(.2,.9,.3,1); }
+@keyframes bobber-fly { 0% { transform: translate(-12px, -24px) scale(.6); opacity: 0; } 20% { opacity: 1; } 60% { transform: translate(2px, -6px) scale(1.05); } 80% { transform: translate(0, 1.5px) scale(.95); } 100% { transform: none; } }
+.fish-scene.is-cast .line { animation: line-fly .7s ease-out; }
+@keyframes line-fly { from { opacity: 0; } to { opacity: 1; } }
+.fish-scene.is-waiting .bobber { animation: bobber-bob 2.4s ease-in-out infinite; transform-origin: 58px 37px; }
+@keyframes bobber-bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(.8px) rotate(3deg); } }
+.ripple { opacity: 0; transform-origin: 58px 37px; }
+.fish-scene.is-waiting .ripple, .fish-scene.is-bite .ripple { animation: ripple-out 2.4s ease-out infinite; }
+.fish-scene.is-waiting .ripple.r2, .fish-scene.is-bite .ripple.r2 { animation-delay: -1.2s; }
+@keyframes ripple-out { 0% { transform: scale(.3); opacity: .9; } 100% { transform: scale(2.6); opacity: 0; } }
+.fish-scene.is-bite .bobber { animation: bobber-bite .16s ease-in-out infinite alternate; transform-origin: 58px 37px; }
+@keyframes bobber-bite { from { transform: translateY(0); } to { transform: translateY(3px) scaleY(.8); } }
+.fish-scene.is-bite .ripple { animation-duration: .9s; }
+.splash { opacity: 0; transform-origin: 58px 36px; }
+.fish-scene.is-bite .splash { opacity: 1; animation: splash .5s ease-out infinite; }
+.fish-scene.is-reel .splash { opacity: 1; animation: splash .35s ease-out infinite; }
+@keyframes splash { 0% { transform: translateY(2px) scale(.5); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(-5px) scale(1.4); opacity: 0; } }
+.catch-shadow { opacity: 0; transform-origin: 58px 38px; }
+.fish-scene.is-reel .catch-shadow { animation: catch-jump 1.2s ease-in-out infinite; }
+@keyframes catch-jump { 0%, 100% { transform: translateY(4px) rotate(0); opacity: 0; } 30% { opacity: .9; } 50% { transform: translateY(-7px) rotate(-25deg); opacity: .9; } 70% { opacity: .9; } }
+.fish-scene.is-reel .bobber-group .bobber { animation: bobber-reel .9s ease-in-out infinite; }
+@keyframes bobber-reel { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-1.5px, -4px); } }
+.fish-scene.is-reel .line { stroke-width: .5; stroke: #fff; }
+.bang { opacity: 0; transform-origin: 58px 12px; }
+.fish-scene.is-bite .bang { opacity: 1; animation: bang-svg .28s ease-in-out infinite alternate; }
+@keyframes bang-svg { from { transform: scale(1); } to { transform: scale(1.3); } }
+/* 아래 버튼 줄: 도감 · 던지기 · 닫기 (창 버튼에 안 가림) */
+.fish-bottom { position: fixed; left: 0; right: 0; bottom: calc(22px + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; gap: 14px; z-index: 3; pointer-events: none; }
+.fish-bottom > * { pointer-events: auto; }
+.fish-action { position: static; transform: none; }
+.fish-bottom .btn.ghost { min-height: 44px; padding: 8px 14px; border-radius: 999px; box-shadow: 0 6px 18px -8px rgba(0,0,0,.5); }
+body.desktop .fish-ui { padding-top: 52px; }
+body.desktop .secret-layer { padding-top: 52px; }
+body.desktop .secret-diary { height: min(80vh, 720px); }
+.fish-scene.is-bite ~ .fish-ui .fish-action { animation: bang .25s ease-in-out infinite alternate; }
+@media (max-width: 760px) { .fish-bottom { gap: 8px; padding: 0 10px; } .fish-action { min-width: 0; flex: 1; max-width: 240px; } }

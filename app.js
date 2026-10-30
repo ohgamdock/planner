@@ -2552,17 +2552,17 @@
   function fishSet(phase) {
     fish.phase = phase;
     var btn = $('fishActionBtn');
-    $('fishBobber').hidden = phase === 'idle';
-    $('fishRipple').hidden = phase !== 'waiting' && phase !== 'bite';
-    $('fishBang').hidden = phase !== 'bite';
-    $('fishScene').classList.toggle('is-bite', phase === 'bite');
-    $('fishScene').classList.toggle('is-waiting', phase === 'waiting');
+    var sc = $('fishScene');
+    ['is-idle', 'is-cast', 'is-waiting', 'is-bite', 'is-reel'].forEach(function (c) { sc.classList.remove(c); });
+    sc.classList.add('is-' + (phase === 'waiting' && fish.justCast ? 'cast' : phase));
+    if (phase === 'waiting' && fish.justCast) { fish.justCast = false; setTimeout(function () { if (fish.phase === 'waiting') { sc.classList.remove('is-cast'); sc.classList.add('is-waiting'); } }, 700); }
     if (phase === 'idle') { btn.textContent = '🎣 던지기'; btn.disabled = false; $('fishSub').textContent = '던져서 입질이 오면 바로 당기세요.'; }
     else if (phase === 'waiting') { btn.textContent = '… 기다리는 중'; btn.disabled = false; $('fishSub').textContent = '찌를 보세요. "!"가 뜨면 바로!'; }
     else if (phase === 'bite') { btn.textContent = '‼ 당기기!'; btn.disabled = false; $('fishSub').textContent = '지금!!'; }
     else if (phase === 'reel') { btn.textContent = '끌어올리는 중…'; btn.disabled = true; $('fishSub').textContent = '뭔가 무겁다…'; }
   }
   function fishCast() {
+    fish.justCast = true;
     fishSet('waiting');
     clearTimeout(fish.timer);
     fish.timer = setTimeout(function () {

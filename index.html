@@ -550,13 +550,40 @@
   <div class="fish-layer" id="fishLayer" hidden>
     <div class="fish-scene" id="fishScene">
       <div class="fish-sky"><div class="fish-cloud c1"></div><div class="fish-cloud c2"></div><div class="fish-sun"></div></div>
-      <div class="fish-water">
-        <div class="fish-wave w1"></div><div class="fish-wave w2"></div>
-        <div class="fish-ripple" id="fishRipple" hidden></div>
-        <div class="fish-bobber" id="fishBobber" hidden></div>
-        <div class="fish-bang" id="fishBang" hidden>!</div>
-      </div>
-      <div class="fish-rod" id="fishRod"></div>
+      <div class="fish-water"><div class="fish-wave w1"></div><div class="fish-wave w2"></div></div>
+      <svg class="fish-svg" viewBox="0 0 100 60" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="rodGrad" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#4A2E14"/><stop offset="1" stop-color="#B07A3F"/></linearGradient>
+          <radialGradient id="bobGrad" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#FF8A8A"/><stop offset=".55" stop-color="#E3261E"/><stop offset="1" stop-color="#8E0E0A"/></radialGradient>
+        </defs>
+        <!-- 낚싯대: 바닥 왼쪽에서 휘어 올라감 -->
+        <g class="rod">
+          <path class="rod-body" d="M14 60 C 22 48, 30 34, 40 20" stroke="url(#rodGrad)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <path class="rod-tip" d="M40 20 C 42 17, 44 15, 46 13" stroke="#D9B27A" stroke-width="1" stroke-linecap="round" fill="none"/>
+          <circle class="rod-reel" cx="20" cy="52" r="2.4" fill="#3B3B3B" stroke="#9A9A9A" stroke-width=".6"/>
+          <circle cx="20" cy="52" r=".7" fill="#D0D0D0"/>
+          <g class="rod-handle"><rect x="12.4" y="55" width="3.2" height="6" rx="1.2" fill="#222" transform="rotate(-32 14 58)"/></g>
+        </g>
+        <!-- 낚싯줄 -->
+        <path class="line" id="fishLine" d="M46 13 Q 50 24, 58 36" stroke="rgba(255,255,255,.85)" stroke-width=".35" fill="none"/>
+        <!-- 찌 + 파문 + 물보라 -->
+        <g class="bobber-group" id="fishBobberG">
+          <ellipse class="ripple r1" cx="58" cy="37" rx="4" ry="1.4" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".3"/>
+          <ellipse class="ripple r2" cx="58" cy="37" rx="4" ry="1.4" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".3"/>
+          <g class="bobber">
+            <ellipse cx="58" cy="36" rx="1.6" ry="2.4" fill="url(#bobGrad)"/>
+            <ellipse cx="58" cy="37.3" rx="1.55" ry="1.2" fill="#F6F6F6"/>
+            <rect x="57.7" y="31.8" width=".6" height="2.2" fill="#F6F6F6"/>
+          </g>
+          <g class="splash">
+            <circle cx="55" cy="34" r=".6" fill="#E6F7FF"/><circle cx="61" cy="33" r=".8" fill="#E6F7FF"/><circle cx="58" cy="31" r=".5" fill="#E6F7FF"/>
+            <circle cx="53" cy="36" r=".5" fill="#E6F7FF"/><circle cx="63" cy="36" r=".6" fill="#E6F7FF"/>
+          </g>
+          <!-- 끌어올릴 때 튀어나오는 그림자 -->
+          <path class="catch-shadow" d="M55 38 c 1.5 -3, 4.5 -3, 6 0 c -1.5 2, -4.5 2, -6 0 z M61 38 l 2 -1.5 l 0 3 z" fill="#0B2F45" opacity=".85"/>
+        </g>
+        <text class="bang" x="58" y="14" text-anchor="middle" font-size="12" font-weight="900" fill="#FFD24A" stroke="#7A2E00" stroke-width=".5">!</text>
+      </svg>
     </div>
     <div class="fish-ui">
       <div class="fish-top">
@@ -564,12 +591,12 @@
           <h2>🎣 낚시터</h2>
           <p class="fish-sub" id="fishSub">던져서 입질이 오면 바로 당기세요.</p>
         </div>
-        <div class="fish-top-tools">
-          <button type="button" class="btn ghost small" id="fishDexBtn">📖 도감 <span id="fishDexCount">0/14</span></button>
-          <button type="button" class="btn ghost small" id="fishCloseBtn">✕ 닫기</button>
         </div>
+      <div class="fish-bottom">
+        <button type="button" class="btn ghost small" id="fishDexBtn">📖 도감 <span id="fishDexCount">0/14</span></button>
+        <button type="button" class="btn primary fish-action" id="fishActionBtn">🎣 던지기</button>
+        <button type="button" class="btn ghost small" id="fishCloseBtn">✕ 닫기</button>
       </div>
-      <button type="button" class="btn primary fish-action" id="fishActionBtn">🎣 던지기</button>
     </div>
 
     <!-- 잡은 결과 -->
