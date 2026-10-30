@@ -2552,7 +2552,30 @@
   // ---------------------------------------------------------------- 비밀 일기 (숨은 화면)
   // 빠른 기록에 "비밀일기"라고 치면 열린다. 내용은 비밀번호에서 만든 키로 암호화되어 저장되고,
   // 닫으면 화면에서 사라지며 풀어 둔 내용도 메모리에서 지운다.
-  var secret = { key: null, entries: null, current: null, stars: null };
+  var secret = { key: null, entries: null, current: null, stars: null, photos: [] };
+  var SECRET_MAX_PHOTOS = 6;
+  function secretIsNarrow() { return window.innerWidth <= 760; }
+  // 휴대폰: 목록 화면 ↔ 작성 화면을 한 번에 하나씩
+  function secretPage(name) {
+    var d = $('secretDiary');
+    d.classList.toggle('page-list', name === 'list');
+    d.classList.toggle('page-editor', name === 'editor');
+    $('secretBackBtn').hidden = !(secretIsNarrow() && name === 'editor');
+    $('secretNewBtn').hidden = secretIsNarrow() && name === 'editor';
+  }
+  function renderSecretPhotos() {
+    var box = $('secretPhotos');
+    box.innerHTML = '';
+    secret.photos.forEach(function (p, i) {
+      var w = el('div', 'secret-photo');
+      var img = el('img'); img.src = p.thumb || p.full; img.alt = ''; img.dataset.index = i;
+      w.appendChild(img);
+      var x = el('button', 'secret-photo-x', '✕'); x.type = 'button'; x.dataset.index = i; x.setAttribute('aria-label', '사진 빼기');
+      w.appendChild(x);
+      box.appendChild(w);
+    });
+    box.hidden = !secret.photos.length;
+  }
   function b64(buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))); }
   function unb64(s) { var bin = atob(s); var a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
   function deriveKey(password, salt) {
@@ -2592,7 +2615,7 @@
     document.body.classList.remove('secret-open');
     stopStars();
     secret.key = null; secret.entries = null; secret.current = null;
-    $('secretList').innerHTML = ''; $('secretText').value = ''; $('secretTitle').value = '';
+    $('secretList').innerHTML = ''; $('secretText').value = ''; $('secretTitle').value = ''; secret.photos = []; $('secretPhotos').innerHTML = ''; $('secretLightbox').hidden = true;
     $('secretPw1').value = ''; $('secretPw2').value = ''; $('secretPw').value = '';
   }
   function saveSecret() {
@@ -2622,7 +2645,7 @@
       if (e.mood) top.appendChild(el('span', 'secret-mood', e.mood));
       li.appendChild(top);
       li.appendChild(el('div', 'secret-title', e.title || '(제목 없음)'));
-      li.appendChild(el('div', 'secret-preview', (e.text || '').replace(/\s+/g, ' ').slice(0, 48)));
+      li.appendChild(el('div', 'secret-preview', ((e.photos && e.photos.length) ? '📷 ' + e.photos.length + '장 · ' : '') + (e.text || '').replace(/\s+/g, ' ').slice(0, 48)));
       list.appendChild(li);
     });
   }
@@ -2637,12 +2660,16 @@
     $('secretTitle').value = e ? (e.title || '') : '';
     $('secretMood').value = e ? (e.mood || '') : '';
     $('secretDate').value = e ? secretDateOf(e) : todayKey();
+    secret.photos = e && Array.isArray(e.photos) ? e.photos.slice() : [];
+    renderSecretPhotos();
     secretMeta();
     renderSecretList();
+    if (id || !secretIsNarrow()) secretPage('editor'); else secretPage('list');
   }
   function enterSecretDiary() {
     $('secretSetup').hidden = true; $('secretUnlock').hidden = true; $('secretDiary').hidden = false;
     openSecretEntry(null);
+    secretPage(secretIsNarrow() ? 'list' : 'editor');
     setTimeout(function () { $('secretText').focus(); }, 80);
   }
   function bindSecret() {
@@ -2688,17 +2715,17 @@
     $('secretCloseBtn2').addEventListener('click', closeSecret);
     $('secretCloseBtn3').addEventListener('click', closeSecret);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('secretLayer').hidden) closeSecret(); });
-    $('secretNewBtn').addEventListener('click', function () { openSecretEntry(null); $('secretText').focus(); });
+    $('secretNewBtn').addEventListener('click', function () { openSecretEntry(null); secretPage('editor'); $('secretText').focus(); });
     $('secretSaveBtn').addEventListener('click', function () {
       var text = $('secretText').value;
-      if (!text.trim()) { toast('내용을 적어 주세요.', true); return; }
+      if (!text.trim() && !secret.photos.length) { toast('내용을 적거나 사진을 넣어 주세요.', true); return; }
       var t = now();
       var fields = { title: $('secretTitle').value.trim(), mood: $('secretMood').value, date: /^\d{4}-\d{2}-\d{2}$/.test($('secretDate').value) ? $('secretDate').value : todayKey() };
       if (secret.current) {
         var e = secret.entries.filter(function (x) { return x.id === secret.current; })[0];
-        if (e) { e.text = text; e.title = fields.title; e.mood = fields.mood; e.date = fields.date; e.updatedAt = t; }
+        if (e) { e.text = text; e.title = fields.title; e.mood = fields.mood; e.date = fields.date; e.photos = secret.photos.slice(); e.updatedAt = t; }
       } else {
-        var n = { id: M.uid(), text: text, title: fields.title, mood: fields.mood, date: fields.date, createdAt: t, updatedAt: t };
+        var n = { id: M.uid(), text: text, title: fields.title, mood: fields.mood, date: fields.date, photos: secret.photos.slice(), createdAt: t, updatedAt: t };
         secret.entries.push(n); secret.current = n.id;
       }
       saveSecret().then(function () { renderSecretList(); secretMeta(); toast('봉인했다.'); });
@@ -2714,6 +2741,28 @@
     });
     $('secretText').addEventListener('keydown', function (e) { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); $('secretSaveBtn').click(); } });
     $('secretText').addEventListener('input', secretMeta);
+    $('secretBackBtn').addEventListener('click', function () { secretPage('list'); });
+    $('secretPhotoBtn').addEventListener('click', function () { $('secretPhotoInput').click(); });
+    $('secretPhotoInput').addEventListener('change', function () {
+      var files = Array.prototype.slice.call(this.files || []);
+      this.value = '';
+      if (!files.length) return;
+      var room = SECRET_MAX_PHOTOS - secret.photos.length;
+      if (room <= 0) { toast('사진은 한 기록에 ' + SECRET_MAX_PHOTOS + '장까지예요.', true); return; }
+      var chain = Promise.resolve();
+      files.slice(0, room).forEach(function (f) {
+        chain = chain.then(function () { return loadImageFile(f).then(function (pack) { secret.photos.push({ full: pack.full, thumb: pack.thumb }); }); });
+      });
+      chain.then(renderSecretPhotos).catch(function (err) { toast(err.message || '사진을 불러오지 못했어요.', true); });
+    });
+    $('secretPhotos').addEventListener('click', function (e) {
+      var x = e.target.closest('.secret-photo-x');
+      if (x) { secret.photos.splice(Number(x.dataset.index), 1); renderSecretPhotos(); return; }
+      var img = e.target.closest('img');
+      if (img) { var p = secret.photos[Number(img.dataset.index)]; if (p) { $('secretLightboxImg').src = p.full; $('secretLightbox').hidden = false; } }
+    });
+    $('secretLightbox').addEventListener('click', function () { this.hidden = true; $('secretLightboxImg').src = ''; });
+    window.addEventListener('resize', function () { if (!$('secretDiary').hidden) secretPage($('secretDiary').classList.contains('page-list') ? 'list' : 'editor'); });
   }
   // 별·은하수 배경 (캔버스)
   function startStars() {

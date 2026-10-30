@@ -582,6 +582,7 @@
           <p class="secret-sub tight" id="secretCount"></p>
         </div>
         <div class="secret-head-tools">
+          <button type="button" class="btn secret-ghost" id="secretBackBtn" hidden>‹ 목록</button>
           <button type="button" class="btn secret-ghost" id="secretNewBtn">+ 새 기록</button>
           <button type="button" class="secret-close inline" id="secretCloseBtn3" aria-label="닫기">✕ 닫기</button>
         </div>
@@ -598,9 +599,12 @@
             <input type="text" id="secretTitle" maxlength="60" placeholder="제목" aria-label="제목">
           </div>
           <textarea id="secretText" placeholder="아무도 모르는 이야기를 여기에…"></textarea>
+          <div class="secret-photos" id="secretPhotos"></div>
+          <input type="file" id="secretPhotoInput" accept="image/*" multiple hidden>
           <div class="secret-editor-foot">
             <span class="secret-hint" id="secretMeta">새 기록 · 0자</span>
             <div>
+              <button type="button" class="btn secret-ghost" id="secretPhotoBtn">📷 사진</button>
               <button type="button" class="btn secret-ghost danger" id="secretDeleteBtn">삭제</button>
               <button type="button" class="btn secret-btn" id="secretSaveBtn">봉인</button>
             </div>
@@ -609,6 +613,7 @@
         </div>
       </div>
     </section>
+    <div class="secret-lightbox" id="secretLightbox" hidden><img id="secretLightboxImg" alt=""></div>
   </div>
 
   <!-- 오늘의 각오 적기 (하루 첫 실행) -->

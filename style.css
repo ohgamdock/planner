@@ -1458,3 +1458,37 @@ body.secret-open { overflow: hidden; }
 .secret-title { color: #ECEFF2; }
 .secret-hint, .secret-month { color: #737C85; }
 .btn.secret-ghost { color: #C9D0D6; }
+
+/* ================= 비밀 일기: 사진 · 휴대폰 UI ================= */
+.secret-photos { display: flex; gap: 8px; flex-wrap: wrap; }
+.secret-photo { position: relative; width: 84px; height: 84px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(150,160,175,.25); background: #000; }
+.secret-photo img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; display: block; }
+.secret-photo-x { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: none; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; cursor: pointer; }
+.secret-lightbox { position: absolute; inset: 0; z-index: 5; background: rgba(0,0,0,.9); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+.secret-lightbox img { max-width: 96vw; max-height: 92vh; border-radius: 8px; box-shadow: 0 0 60px rgba(0,0,0,.8); }
+.secret-editor-foot > div { display: flex; gap: 6px; }
+@media (max-width: 760px) {
+  .secret-layer { padding: 0; align-items: stretch; }
+  .secret-card { margin: auto 16px; }
+  .secret-diary { width: 100%; height: 100%; border-radius: 0; border: none; padding: calc(12px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom)); }
+  .secret-head { margin-bottom: 10px; }
+  .secret-head h2 { font-size: 18px; }
+  .secret-head-tools { gap: 6px; }
+  .secret-head-tools .btn { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+  .secret-body { display: block; min-height: 0; height: calc(100% - 56px); }
+  .secret-list { display: none; flex-direction: column; overflow-y: auto; overflow-x: hidden; height: 100%; }
+  .secret-item { flex: 0 0 auto; padding: 12px 14px; }
+  .secret-title { font-size: 15px; }
+  .secret-editor { display: none; height: 100%; }
+  .secret-diary.page-list .secret-list { display: flex; }
+  .secret-diary.page-editor .secret-editor { display: flex; }
+  .secret-fields { grid-template-columns: 1fr 1fr; }
+  .secret-fields input[type="text"] { grid-column: 1 / -1; }
+  .secret-fields input, .secret-fields select { min-height: 42px; width: 100%; }
+  .secret-editor textarea { min-height: 160px; font-size: 16px; padding: 14px; }
+  .secret-editor-foot { flex-wrap: wrap; }
+  .secret-editor-foot > div { width: 100%; }
+  .secret-editor-foot .btn { flex: 1; min-height: 44px; }
+  .secret-hint:last-child { display: none; }
+  .secret-photo { width: 72px; height: 72px; }
+}
