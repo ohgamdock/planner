@@ -72,7 +72,7 @@ const STATIC = {
 // 데이터는 비밀 동기화 코드로만 접근되므로 출처 제한은 두지 않는다.
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400'
 };
@@ -136,6 +136,40 @@ function readBody(req) {
   });
 }
 
+// 식단 사진: 동기화 JSON에 넣으면 금방 용량을 넘으므로 코드별 폴더에 파일로 둔다
+const PHOTO_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+function photoFile(key, id) { return path.join(DATA_DIR, 'photos', key, id + '.jpg'); }
+async function handlePhoto(req, res, key, id) {
+  if (!KEY_RE.test(key) || !PHOTO_ID_RE.test(id)) return sendJson(res, 400, { error: '잘못된 주소' });
+  const file = photoFile(key, id);
+  if (req.method === 'GET') {
+    let buf;
+    try { buf = fs.readFileSync(file); } catch (e) { return sendJson(res, 404, { error: '사진 없음' }); }
+    res.writeHead(200, Object.assign({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' }, CORS));
+    return res.end(buf);
+  }
+  if (req.method === 'PUT') {
+    let buf;
+    try {
+      const m = (await readBody(req)).match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/);
+      if (!m) throw new Error('bad');
+      buf = Buffer.from(m[1], 'base64');
+      if (buf[0] !== 0xFF || buf[1] !== 0xD8) throw new Error('bad');
+    } catch (e) {
+      return sendJson(res, 400, { error: '사진을 읽을 수 없음' });
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, buf);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (req.method === 'DELETE') {
+    fs.rmSync(file, { force: true });
+    return sendJson(res, 200, { ok: true });
+  }
+  res.writeHead(405, { Allow: 'GET, PUT, DELETE' });
+  res.end();
+}
+
 function dataPath(key) {
   return path.join(DATA_DIR, key + '.json');
 }
@@ -179,6 +213,8 @@ async function handleApi(req, res, url) {
     if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }); return res.end(); }
     return handleStream(req, res, s[1]);
   }
+  const ph = url.pathname.match(/^\/api\/photo\/([^/]+)\/([^/]+)$/);
+  if (ph) return handlePhoto(req, res, ph[1], ph[2]);
   const m = url.pathname.match(/^\/api\/data\/([^/]+)$/);
   if (!m) return sendJson(res, 404, { error: 'not found' });
   const key = m[1];

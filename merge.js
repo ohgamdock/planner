@@ -34,6 +34,7 @@
       resolutions: {},
       secret: null,
       fishdex: {},
+      meals: [],
       events: [],
       projects: { work: [], personal: [] },
       routines: [],
@@ -81,6 +82,25 @@
     if (DATE_RE.test(dk)) task.dayKey = dk;
     if (t.logged) task.logged = true;
     return task;
+  }
+
+  // 식단: 사진은 용량이 커서 id만 적고, 파일은 기기·서버에 따로 둔다
+  var MEAL_SLOTS = ['아침', '점심', '저녁', '간식'];
+  function normMeal(m) {
+    if (!isObj(m) || !DATE_RE.test(str(m.dayKey))) return null;
+    var text = str(m.text).trim().slice(0, 1000);
+    var photos = Array.isArray(m.photos) ? m.photos.map(str).filter(function (p) { return /^[A-Za-z0-9_-]{1,64}$/.test(p); }).slice(0, 4) : [];
+    if (!text && !photos.length) return null;
+    var created = num(m.createdAt, num(m.updatedAt, 0)) || 0;
+    return {
+      id: str(m.id) || uid(),
+      dayKey: m.dayKey,
+      slot: MEAL_SLOTS.indexOf(m.slot) >= 0 ? m.slot : '간식',
+      text: text,
+      photos: photos,
+      createdAt: created,
+      updatedAt: num(m.updatedAt, created) || created
+    };
   }
 
   // 루틴: 요일(0=일 … 6=토) 목록, 비어 있으면 매일
@@ -312,6 +332,7 @@
       d.projects.personal = normList(raw.projects.personal, normProject);
     }
     d.routines = normList(raw.routines, normRoutine);
+    d.meals = normList(raw.meals, normMeal);
     if (isObj(raw.deleted)) {
       Object.keys(raw.deleted).forEach(function (id) {
         var ts = num(raw.deleted[id], 0);
@@ -334,6 +355,7 @@
       d.notes.length === 0 &&
       d.events.length === 0 &&
       d.routines.length === 0 &&
+      d.meals.length === 0 &&
       d.projects.work.length === 0 &&
       d.projects.personal.length === 0;
   }
@@ -341,7 +363,7 @@
   // 사용자 입력 없이 초기 예시만 들어 있는 상태인가? (다른 기기 코드로 연결할 때 예시는 버린다)
   function isOnlySeeds(d) {
     d = normalize(d);
-    if (d.notes.length || d.events.length || d.routines.length) return false;
+    if (d.notes.length || d.events.length || d.routines.length || d.meals.length) return false;
     var allSeed = true;
     Object.keys(d.days).forEach(function (k) {
       d.days[k].tasks.forEach(function (t) { if (!t.seed) allSeed = false; });
@@ -522,6 +544,9 @@
 
     // 루틴: id 기준, 최신 쪽 우선
     out.routines = mergeList(a.routines, b.routines, deleted, function (r) { return r.id; }, combineNote).sort(byCreated);
+
+    // 식단: id 기준, 최신 쪽 우선
+    out.meals = mergeList(a.meals, b.meals, deleted, function (m) { return m.id; }, combineNote).sort(byCreated);
 
     if (a.meta.seededPlan || b.meta.seededPlan) out.meta.seededPlan = true;
     if (a.meta.seededProjects || b.meta.seededProjects) out.meta.seededProjects = true;
