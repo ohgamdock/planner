@@ -644,42 +644,36 @@
         <div><span>지출</span><strong class="led-out" id="ledgerOut"></strong></div>
         <div><span>남은 돈</span><strong class="led-left" id="ledgerLeft"></strong></div>
       </div>
-      <div class="meal-weekdays" aria-hidden="true"><span class="is-sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
-      <div class="meal-grid" id="ledgerGrid"></div>
-    </div>
-
-    <div class="meal-day" id="ledgerDay" hidden>
-      <div class="meal-sheet" id="ledgerSheet" role="dialog" aria-modal="true" aria-labelledby="ledgerDayTitle">
-        <header class="meal-sheet-head">
-          <button type="button" class="btn" id="ledgerDayBack">‹ 달력</button>
-          <div class="meal-sheet-title">
-            <button type="button" class="btn meal-nav" id="ledgerDayPrev" aria-label="전날">‹</button>
-            <h3 id="ledgerDayTitle"></h3>
-            <button type="button" class="btn meal-nav" id="ledgerDayNext" aria-label="다음날">›</button>
+      <div class="led-body">
+        <div class="led-compose">
+          <div class="led-compose-head">
+            <button type="button" class="btn led-write-back" id="ledgerWriteBack">‹ 목록</button>
+            <h3 id="ledgerFormTitle">내역 적기</h3>
           </div>
-        </header>
-        <div class="meal-list" id="ledgerList"></div>
-        <button type="button" class="btn meal-add" id="ledgerAddBtn">＋ 내역 추가</button>
-        <form class="meal-form" id="ledgerForm" hidden>
-          <div class="meal-slots led-types" id="ledgerTypes" role="group" aria-label="수입 또는 지출">
-            <button type="button" data-type="out">지출</button>
-            <button type="button" data-type="in">수입</button>
-          </div>
-          <input type="text" class="led-amount-input" id="ledgerAmount" inputmode="numeric" autocomplete="off" maxlength="17" aria-label="금액" placeholder="금액 (원)">
-          <div class="led-cats" id="ledgerCats" role="group" aria-label="분류"></div>
-          <input type="text" class="led-memo-input" id="ledgerMemo" maxlength="200" aria-label="메모" placeholder="메모 (예: 점심 김밥)">
-          <div class="meal-form-actions">
-            <button type="button" class="btn" id="ledgerFormCancel">취소</button>
-            <button type="submit" class="btn primary" id="ledgerFormSave">기록하기</button>
-          </div>
-        </form>
+          <form class="meal-form" id="ledgerForm">
+            <div class="meal-slots led-types" id="ledgerTypes" role="group" aria-label="수입 또는 지출">
+              <button type="button" data-type="out">지출</button>
+              <button type="button" data-type="in">수입</button>
+            </div>
+            <input type="text" class="led-amount-input" id="ledgerAmount" inputmode="numeric" autocomplete="off" maxlength="17" aria-label="금액" placeholder="금액 (원)">
+            <div class="led-cats" id="ledgerCats" role="group" aria-label="분류"></div>
+            <input type="text" class="led-field" id="ledgerMemo" maxlength="200" aria-label="메모" placeholder="메모 (예: 점심 김밥)">
+            <input type="date" class="led-field" id="ledgerDate" aria-label="날짜">
+            <div class="meal-form-actions">
+              <button type="button" class="btn" id="ledgerFormCancel" hidden>취소</button>
+              <button type="submit" class="btn primary led-save" id="ledgerFormSave">기록하기</button>
+            </div>
+          </form>
+        </div>
+        <div class="led-feed" id="ledgerFeed"></div>
       </div>
+      <button type="button" class="btn primary led-fab" id="ledgerFab">＋ 내역 적기</button>
     </div>
 
     <div class="meal-day" id="ledgerStats" hidden>
       <div class="meal-sheet" role="dialog" aria-modal="true" aria-labelledby="ledgerStatsTitle">
         <header class="meal-sheet-head">
-          <button type="button" class="btn" id="ledgerStatsClose">‹ 달력</button>
+          <button type="button" class="btn" id="ledgerStatsClose">‹ 목록</button>
           <h3 class="led-stats-title" id="ledgerStatsTitle"></h3>
         </header>
         <div id="ledgerStatsBody"></div>
