@@ -1698,6 +1698,7 @@ body.desktop .meal-day { padding-top: 48px; }
 
 /* ---------- 가계부 (식단 화면의 틀을 함께 쓴다) ---------- */
 .led-stats-btn { justify-self: end; }
+#ledgerCloseBtn { justify-self: start; }
 .led-in { color: var(--green); }
 .led-out { color: var(--danger); }
 .led-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
