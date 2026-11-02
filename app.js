@@ -2503,6 +2503,7 @@
     if (!AppPlugin || !AppPlugin.addListener) return;
     var lastBack = 0;
     AppPlugin.addListener('backButton', function () {
+      if (!$('ledgerLayer').hidden) { ledgerBack(); return; }
       if (!$('mealLayer').hidden) { mealBack(); return; }
       if (!$('eventModal').hidden) { closeEventForm(); return; }
       if (!$('resolutionModal').hidden) { closeResolutionModal(true); return; }
@@ -3055,6 +3056,289 @@
     });
   }
 
+  // ---------------------------------------------------------------- 가계부 (빠른 기록에 "가계부")
+  var LEDGER_CATS = {
+    out: ['식비', '카페·간식', '교통', '쇼핑', '생활', '주거·통신', '건강', '취미·여가', '기타'],
+    'in': ['월급', '용돈', '부수입', '기타']
+  };
+  var ledger = { y: 0, m: 0, day: null, editId: null, type: 'out', cat: '식비' };
+  function won(n) { return Number(n).toLocaleString('ko-KR') + '원'; }
+  function wonShort(n) {
+    if (window.innerWidth > 760) return Number(n).toLocaleString('ko-KR');
+    return n >= 10000 ? (Math.round(n / 1000) / 10) + '만' : Number(n).toLocaleString('ko-KR');
+  }
+  function ledgerOf(key) {
+    return (data.ledger || []).filter(function (x) { return x.dayKey === key; })
+      .sort(function (a, b) { return a.createdAt - b.createdAt; });
+  }
+  function ledgerMonth() {
+    var pre = ledger.y + '-' + pad2(ledger.m + 1) + '-';
+    return (data.ledger || []).filter(function (x) { return x.dayKey.indexOf(pre) === 0; });
+  }
+  function ledgerSum(list, type) {
+    return list.reduce(function (s, x) { return x.type === type ? s + x.amount : s; }, 0);
+  }
+  function openLedger() {
+    var d = new Date();
+    ledger.y = d.getFullYear(); ledger.m = d.getMonth();
+    $('ledgerLayer').hidden = false;
+    $('ledgerStats').hidden = true;
+    closeLedgerDay();
+  }
+  function closeLedger() {
+    closeLedgerDay();
+    $('ledgerStats').hidden = true;
+    $('ledgerLayer').hidden = true;
+  }
+  function ledgerMoveMonth(delta) {
+    var d = new Date(ledger.y, ledger.m + delta, 1);
+    ledger.y = d.getFullYear(); ledger.m = d.getMonth();
+    renderLedgerCalendar();
+  }
+  function renderLedgerCalendar() {
+    $('ledgerMonthTitle').textContent = ledger.y + '년 ' + (ledger.m + 1) + '월';
+    var mon = ledgerMonth();
+    var inc = ledgerSum(mon, 'in'), out = ledgerSum(mon, 'out');
+    $('ledgerIn').textContent = won(inc);
+    $('ledgerOut').textContent = won(out);
+    $('ledgerLeft').textContent = (inc - out < 0 ? '-' : '') + won(Math.abs(inc - out));
+    $('ledgerLeft').classList.toggle('is-minus', inc - out < 0);
+    var grid = $('ledgerGrid');
+    grid.textContent = '';
+    var first = new Date(ledger.y, ledger.m, 1);
+    var last = new Date(ledger.y, ledger.m + 1, 0).getDate();
+    grid.style.gridTemplateRows = 'repeat(' + Math.ceil((first.getDay() + last) / 7) + ', minmax(0, 1fr))';
+    var tKey = todayKey();
+    for (var i = 0; i < first.getDay(); i++) grid.appendChild(el('div', 'meal-cell is-blank'));
+    for (var n = 1; n <= last; n++) {
+      var d = new Date(ledger.y, ledger.m, n);
+      var key = keyOf(d);
+      var list = ledgerOf(key);
+      var cell = el('button', 'meal-cell');
+      cell.type = 'button';
+      cell.dataset.key = key;
+      if (key === tKey) cell.classList.add('is-today');
+      if (d.getDay() === 0) cell.classList.add('is-sun');
+      cell.appendChild(el('span', 'meal-cell-num', String(n)));
+      var label = n + '일';
+      if (list.length) {
+        var dayIn = ledgerSum(list, 'in'), dayOut = ledgerSum(list, 'out');
+        var box = el('span', 'led-cell-sums');
+        if (dayIn) box.appendChild(el('span', 'led-in', '+' + wonShort(dayIn)));
+        if (dayOut) box.appendChild(el('span', 'led-out', '-' + wonShort(dayOut)));
+        cell.appendChild(box);
+        label += ', 수입 ' + won(dayIn) + ', 지출 ' + won(dayOut);
+      }
+      cell.setAttribute('aria-label', label);
+      grid.appendChild(cell);
+    }
+    if (!$('ledgerStats').hidden) renderLedgerStats();
+  }
+  function renderLedgerStats() {
+    $('ledgerStatsTitle').textContent = ledger.y + '년 ' + (ledger.m + 1) + '월 분류별';
+    var box = $('ledgerStatsBody');
+    box.textContent = '';
+    var mon = ledgerMonth();
+    [['out', '지출'], ['in', '수입']].forEach(function (t) {
+      var totals = {}, sum = 0;
+      mon.forEach(function (x) {
+        if (x.type !== t[0]) return;
+        totals[x.category] = (totals[x.category] || 0) + x.amount;
+        sum += x.amount;
+      });
+      var names = Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; });
+      if (!names.length) return;
+      var head = el('h4', 'led-stats-head');
+      head.appendChild(el('span', '', t[1]));
+      head.appendChild(el('span', t[0] === 'in' ? 'led-in' : 'led-out', won(sum)));
+      box.appendChild(head);
+      names.forEach(function (name) {
+        var pct = Math.round(totals[name] / sum * 100);
+        var row = el('div', 'led-bar-row');
+        var line = el('div', 'led-bar-line');
+        line.appendChild(el('span', '', name + ' ' + pct + '%'));
+        line.appendChild(el('span', '', won(totals[name])));
+        row.appendChild(line);
+        var track = el('div', 'led-bar-track');
+        var fill = el('div', 'led-bar-fill' + (t[0] === 'in' ? ' is-in' : ''));
+        fill.style.width = pct + '%';
+        track.appendChild(fill);
+        row.appendChild(track);
+        box.appendChild(row);
+      });
+    });
+    if (!box.firstChild) box.appendChild(el('p', 'muted', '이번 달 기록이 아직 없어요.'));
+  }
+  function openLedgerDay(key) {
+    ledger.day = key;
+    $('ledgerDay').hidden = false;
+    $('ledgerDayTitle').textContent = fmtLong(key);
+    resetLedgerForm();
+    showLedgerForm(!ledgerOf(key).length);
+    renderLedgerDay();
+    $('ledgerSheet').scrollTop = 0;
+  }
+  function closeLedgerDay() {
+    ledger.day = null;
+    $('ledgerDay').hidden = true;
+    resetLedgerForm();
+    renderLedgerCalendar();
+  }
+  function renderLedgerDay() {
+    if (!ledger.day) return;
+    var box = $('ledgerList');
+    box.textContent = '';
+    ledgerOf(ledger.day).forEach(function (x) {
+      var row = el('article', 'led-entry');
+      var main = el('div', 'led-entry-main');
+      main.appendChild(el('span', 'meal-slot-tag', x.category));
+      if (x.memo) main.appendChild(el('span', 'led-memo', x.memo));
+      row.appendChild(main);
+      row.appendChild(el('strong', 'led-amount ' + (x.type === 'in' ? 'led-in' : 'led-out'), (x.type === 'in' ? '+' : '-') + won(x.amount)));
+      var acts = el('div', 'meal-entry-acts');
+      var edit = el('button', 'btn', '수정'); edit.type = 'button'; edit.dataset.edit = x.id;
+      var del = el('button', 'btn meal-del', '삭제'); del.type = 'button'; del.dataset.del = x.id;
+      acts.appendChild(edit); acts.appendChild(del);
+      row.appendChild(acts);
+      box.appendChild(row);
+    });
+  }
+  function showLedgerForm(on) {
+    $('ledgerForm').hidden = !on;
+    $('ledgerAddBtn').hidden = on;
+    $('ledgerFormCancel').hidden = !ledgerOf(ledger.day || '').length;
+    if (on && ledger.day && window.innerWidth > 760) $('ledgerAmount').focus();
+  }
+  function setLedgerType(type, cat) {
+    ledger.type = type;
+    ledger.cat = cat || LEDGER_CATS[type][0];
+    renderLedgerChoices();
+  }
+  function renderLedgerChoices() {
+    Array.prototype.forEach.call(document.querySelectorAll('#ledgerTypes button'), function (b) {
+      var on = b.dataset.type === ledger.type;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var box = $('ledgerCats');
+    box.textContent = '';
+    var cats = LEDGER_CATS[ledger.type].slice();
+    if (cats.indexOf(ledger.cat) < 0) cats.push(ledger.cat);
+    cats.forEach(function (c) {
+      var b = el('button', c === ledger.cat ? 'is-on' : '', c);
+      b.type = 'button';
+      b.dataset.cat = c;
+      b.setAttribute('aria-pressed', c === ledger.cat ? 'true' : 'false');
+      box.appendChild(b);
+    });
+  }
+  function resetLedgerForm() {
+    ledger.editId = null;
+    $('ledgerAmount').value = '';
+    $('ledgerMemo').value = '';
+    $('ledgerFormSave').textContent = '기록하기';
+    setLedgerType('out');
+  }
+  function ledgerAmountValue() { return Number($('ledgerAmount').value.replace(/[^0-9]/g, '')) || 0; }
+  function saveLedger() {
+    if (!ledger.day) return;
+    var amount = ledgerAmountValue();
+    if (amount <= 0) { toast('금액을 적어 주세요.', true); $('ledgerAmount').focus(); return; }
+    var memo = $('ledgerMemo').value.trim();
+    var t = now();
+    if (ledger.editId) {
+      var x = data.ledger.filter(function (e) { return e.id === ledger.editId; })[0];
+      if (x) { x.type = ledger.type; x.category = ledger.cat; x.amount = amount; x.memo = memo; x.updatedAt = t; }
+    } else {
+      data.ledger.push({ id: M.uid(), dayKey: ledger.day, type: ledger.type, category: ledger.cat, amount: amount, memo: memo, createdAt: t, updatedAt: t });
+    }
+    save();
+    toast('가계부에 적었어요.');
+    resetLedgerForm();
+    showLedgerForm(false);
+    renderLedgerDay();
+    renderLedgerCalendar();
+  }
+  function deleteLedger(id) {
+    if (!confirm('이 내역을 지울까요?')) return;
+    data.ledger = data.ledger.filter(function (x) { return x.id !== id; });
+    tombstone(id);
+    save();
+    if (ledger.editId === id) resetLedgerForm();
+    showLedgerForm(!$('ledgerForm').hidden || !ledgerOf(ledger.day).length);
+    renderLedgerDay();
+    renderLedgerCalendar();
+  }
+  function ledgerBack() {
+    if (!$('ledgerStats').hidden) { $('ledgerStats').hidden = true; return; }
+    if (!$('ledgerDay').hidden) { closeLedgerDay(); return; }
+    closeLedger();
+  }
+  function bindLedger() {
+    $('ledgerCloseBtn').addEventListener('click', closeLedger);
+    $('ledgerPrev').addEventListener('click', function () { ledgerMoveMonth(-1); });
+    $('ledgerNext').addEventListener('click', function () { ledgerMoveMonth(1); });
+    $('ledgerStatsBtn').addEventListener('click', function () { renderLedgerStats(); $('ledgerStats').hidden = false; });
+    $('ledgerStatsClose').addEventListener('click', function () { $('ledgerStats').hidden = true; });
+    $('ledgerStats').addEventListener('click', function (e) { if (e.target === $('ledgerStats')) $('ledgerStats').hidden = true; });
+    $('ledgerGrid').addEventListener('click', function (e) {
+      var c = e.target.closest('.meal-cell[data-key]');
+      if (c) openLedgerDay(c.dataset.key);
+    });
+    var sx = null;
+    $('ledgerGrid').addEventListener('touchstart', function (e) { sx = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+    $('ledgerGrid').addEventListener('touchend', function (e) {
+      if (sx === null || !e.changedTouches.length) return;
+      var dx = e.changedTouches[0].clientX - sx; sx = null;
+      if (Math.abs(dx) > 70) ledgerMoveMonth(dx < 0 ? 1 : -1);
+    }, { passive: true });
+    $('ledgerDayBack').addEventListener('click', closeLedgerDay);
+    $('ledgerDay').addEventListener('click', function (e) { if (e.target === $('ledgerDay')) closeLedgerDay(); });
+    function stepDay(n) {
+      var k = shiftDay(ledger.day, n), d = parseKey(k);
+      ledger.y = d.getFullYear(); ledger.m = d.getMonth();
+      renderLedgerCalendar();
+      openLedgerDay(k);
+    }
+    $('ledgerDayPrev').addEventListener('click', function () { stepDay(-1); });
+    $('ledgerDayNext').addEventListener('click', function () { stepDay(1); });
+    $('ledgerAddBtn').addEventListener('click', function () { resetLedgerForm(); showLedgerForm(true); });
+    $('ledgerFormCancel').addEventListener('click', function () { resetLedgerForm(); showLedgerForm(false); });
+    $('ledgerTypes').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-type]');
+      if (b) setLedgerType(b.dataset.type);
+    });
+    $('ledgerCats').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-cat]');
+      if (b) { ledger.cat = b.dataset.cat; renderLedgerChoices(); }
+    });
+    $('ledgerAmount').addEventListener('input', function () {
+      var v = ledgerAmountValue();
+      this.value = v ? v.toLocaleString('ko-KR') : '';
+    });
+    $('ledgerForm').addEventListener('submit', function (e) { e.preventDefault(); saveLedger(); });
+    $('ledgerList').addEventListener('click', function (e) {
+      var ed = e.target.closest('[data-edit]');
+      if (ed) {
+        var x = data.ledger.filter(function (r) { return r.id === ed.dataset.edit; })[0];
+        if (!x) return;
+        resetLedgerForm();
+        ledger.editId = x.id;
+        setLedgerType(x.type, x.category);
+        $('ledgerAmount').value = x.amount.toLocaleString('ko-KR');
+        $('ledgerMemo').value = x.memo;
+        $('ledgerFormSave').textContent = '수정 저장';
+        showLedgerForm(true);
+        return;
+      }
+      var dl = e.target.closest('[data-del]');
+      if (dl) deleteLedger(dl.dataset.del);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !$('ledgerLayer').hidden) ledgerBack();
+    });
+  }
+
   // ---------------------------------------------------------------- 파티 모드
   // 빠른 기록 칸에 "파티파티"라고 적으면 클럽 테마가 켜지고, "그만!!!"이라고 적으면 원래대로 돌아온다.
   var PARTY_KEY = 'planner.v1.party';
@@ -3085,6 +3369,11 @@
     if (/낚시낚시/.test(text)) {
       $('noteText').value = text.replace(/낚시낚시/g, '');
       openFishing();
+      return;
+    }
+    if (/가계부/.test(text)) {
+      $('noteText').value = text.replace(/가계부/g, '');
+      openLedger();
       return;
     }
     if (/식단식단/.test(text)) {
@@ -3496,6 +3785,7 @@
     else renderProjectsView(false);
     renderProjects();
     if (!$('mealLayer').hidden) { renderMealCalendar(); renderMealDay(); }
+    if (!$('ledgerLayer').hidden) { renderLedgerCalendar(); renderLedgerDay(); }
   }
 
   // ---------------------------------------------------------------- 이벤트 바인딩
@@ -3527,6 +3817,7 @@
     bindSecret();
     bindFishing();
     bindMeals();
+    bindLedger();
     if (window.plannerDesktop) { document.body.classList.add('desktop'); if (/Mac/i.test(navigator.platform)) document.body.classList.add('mac'); }
 
     // 달력

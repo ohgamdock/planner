@@ -1695,3 +1695,39 @@ body.desktop .meal-day { padding-top: 48px; }
   .meal-day { padding: 0; overflow: hidden; }
   .meal-sheet { height: 100%; max-width: none; border-radius: 0; overflow: auto; padding: calc(12px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom)); }
 }
+
+/* ---------- 가계부 (식단 화면의 틀을 함께 쓴다) ---------- */
+.led-stats-btn { justify-self: end; }
+.led-in { color: var(--green); }
+.led-out { color: var(--danger); }
+.led-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.led-summary > div { min-width: 0; padding: 8px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.led-summary span { display: block; font-size: 12.5px; color: var(--muted); }
+.led-summary strong { display: block; font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
+.led-left.is-minus { color: var(--danger); }
+.led-cell-sums { position: absolute; left: 0; right: 0; bottom: 6px; z-index: 1; display: flex; flex-direction: column; align-items: flex-end; padding: 0 8px; font-size: 13px; font-weight: 700; line-height: 1.3; }
+.led-cell-sums span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.led-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.led-entry-main { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.led-memo { min-width: 0; overflow-wrap: anywhere; }
+.led-amount { font-size: 17px; font-weight: 800; text-align: right; }
+.led-entry .meal-entry-acts { grid-column: 1 / -1; justify-content: flex-end; }
+.led-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.led-amount-input, .led-memo-input { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.led-amount-input { font-size: 22px; font-weight: 800; text-align: right; }
+.led-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+.led-cats button { min-height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.led-cats button.is-on { background: var(--green-soft); border-color: var(--green); color: var(--green-deep); }
+.led-stats-title { margin: 0; flex: 1 1 auto; text-align: center; font-size: 17px; font-weight: 800; }
+.led-stats-head { display: flex; justify-content: space-between; margin: 16px 0 10px; font-size: 16px; font-weight: 800; }
+.led-stats-head:first-child { margin-top: 0; }
+.led-bar-row { margin-bottom: 12px; }
+.led-bar-line { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 4px; font-size: 14px; }
+.led-bar-track { height: 10px; border-radius: 999px; background: var(--bg); overflow: hidden; }
+.led-bar-fill { height: 100%; border-radius: 999px; background: var(--danger); }
+.led-bar-fill.is-in { background: var(--green); }
+@media (max-width: 760px) {
+  .led-summary > div { padding: 6px 8px; }
+  .led-summary strong { font-size: 14px; }
+  .led-cell-sums { bottom: 4px; padding: 0 3px; font-size: 11px; }
+}

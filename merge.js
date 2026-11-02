@@ -35,6 +35,7 @@
       secret: null,
       fishdex: {},
       meals: [],
+      ledger: [],
       events: [],
       projects: { work: [], personal: [] },
       routines: [],
@@ -82,6 +83,24 @@
     if (DATE_RE.test(dk)) task.dayKey = dk;
     if (t.logged) task.logged = true;
     return task;
+  }
+
+  // 가계부: 수입·지출 한 건
+  function normLedger(x) {
+    if (!isObj(x) || !DATE_RE.test(str(x.dayKey))) return null;
+    var amount = Math.floor(Number(x.amount));
+    if (!(amount > 0) || amount > 1e13) return null;
+    var created = num(x.createdAt, num(x.updatedAt, 0)) || 0;
+    return {
+      id: str(x.id) || uid(),
+      dayKey: x.dayKey,
+      type: x.type === 'in' ? 'in' : 'out',
+      category: str(x.category).trim().slice(0, 20) || '기타',
+      amount: amount,
+      memo: str(x.memo).trim().slice(0, 200),
+      createdAt: created,
+      updatedAt: num(x.updatedAt, created) || created
+    };
   }
 
   // 식단: 사진은 용량이 커서 id만 적고, 파일은 기기·서버에 따로 둔다
@@ -333,6 +352,7 @@
     }
     d.routines = normList(raw.routines, normRoutine);
     d.meals = normList(raw.meals, normMeal);
+    d.ledger = normList(raw.ledger, normLedger);
     if (isObj(raw.deleted)) {
       Object.keys(raw.deleted).forEach(function (id) {
         var ts = num(raw.deleted[id], 0);
@@ -356,6 +376,7 @@
       d.events.length === 0 &&
       d.routines.length === 0 &&
       d.meals.length === 0 &&
+      d.ledger.length === 0 &&
       d.projects.work.length === 0 &&
       d.projects.personal.length === 0;
   }
@@ -363,7 +384,7 @@
   // 사용자 입력 없이 초기 예시만 들어 있는 상태인가? (다른 기기 코드로 연결할 때 예시는 버린다)
   function isOnlySeeds(d) {
     d = normalize(d);
-    if (d.notes.length || d.events.length || d.routines.length || d.meals.length) return false;
+    if (d.notes.length || d.events.length || d.routines.length || d.meals.length || d.ledger.length) return false;
     var allSeed = true;
     Object.keys(d.days).forEach(function (k) {
       d.days[k].tasks.forEach(function (t) { if (!t.seed) allSeed = false; });
@@ -545,6 +566,8 @@
     // 루틴: id 기준, 최신 쪽 우선
     out.routines = mergeList(a.routines, b.routines, deleted, function (r) { return r.id; }, combineNote).sort(byCreated);
 
+    // 가계부: id 기준, 최신 쪽 우선
+    out.ledger = mergeList(a.ledger, b.ledger, deleted, function (x) { return x.id; }, combineNote).sort(byCreated);
     // 식단: id 기준, 최신 쪽 우선
     out.meals = mergeList(a.meals, b.meals, deleted, function (m) { return m.id; }, combineNote).sort(byCreated);
 
