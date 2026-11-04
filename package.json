@@ -75,16 +75,12 @@
         {
           "target": "dmg",
           "arch": [
-            "arm64",
-            "x64"
+            "universal"
           ]
         }
       ],
       "icon": "assets/logo-1-full.png",
-      "artifactName": "계획비슷한걸-다이어리-맥-${arch}-${version}.${ext}",
-      "identity": "-",
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "artifactName": "계획비슷한걸-다이어리-맥-${version}.${ext}"
     },
     "dmg": {
       "title": "계획 다이어리"
