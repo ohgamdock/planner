@@ -167,6 +167,8 @@
     if (!M.isEmptyData(d)) return;
     // 새 사용자용(깨끗한) 설치판: 예시 데이터를 전혀 넣지 않는다
     if (/[?&]clean=1/.test(location.search)) return;
+    // 웹(서버 주소)으로 여는 사람은 남이 볼 수 있으므로 예시 없이 빈 화면으로 시작한다
+    if (!window.plannerDesktop) return;
     var t = now();
     if (!d.meta.seededPlan) {
       d.days[todayKey()] = {
