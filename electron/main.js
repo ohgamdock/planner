@@ -316,7 +316,9 @@ app.whenReady().then(async () => {
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    // 맥: 창을 닫아 숨겨 둔 상태에서 독 아이콘을 누르면 다시 보여 준다
+    if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); }
+    else if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
