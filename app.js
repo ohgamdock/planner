@@ -158,8 +158,29 @@
       if (raw) d = M.normalize(JSON.parse(raw));
     } catch (e) { d = null; }
     if (!d) d = M.emptyData();
+    var hasKey = false;
+    try { hasKey = !!localStorage.getItem(SYNC_KEY); } catch (e) { /* 무시 */ }
+    if (!window.plannerDesktop && !hasKey && dropUntouchedSeeds(d)) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch (e) { /* 무시 */ }
+    }
     seedIfEmpty(d);
     return d;
+  }
+  // 예전에 웹에서 열었을 때 들어간 예시(한 번도 손대지 않은 것)를 지운다. 동기화 안 하는 웹 화면에서만.
+  function dropUntouchedSeeds(d) {
+    var dropped = false;
+    Object.keys(d.days).forEach(function (k) {
+      var keep = d.days[k].tasks.filter(function (t) { return !t.seed; });
+      if (keep.length !== d.days[k].tasks.length) dropped = true;
+      d.days[k].tasks = keep;
+      if (!keep.length) delete d.days[k];
+    });
+    ['work', 'personal'].forEach(function (cat) {
+      var keep = d.projects[cat].filter(function (p) { return !p.seed; });
+      if (keep.length !== d.projects[cat].length) dropped = true;
+      d.projects[cat] = keep;
+    });
+    return dropped;
   }
 
   // 비어 있는 계정에만 초기 예시를 넣는다. 데이터가 있으면 절대 덮어쓰지 않는다.
