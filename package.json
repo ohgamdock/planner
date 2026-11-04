@@ -81,7 +81,10 @@
         }
       ],
       "icon": "assets/logo-1-full.png",
-      "artifactName": "계획비슷한걸-다이어리-맥-${arch}-${version}.${ext}"
+      "artifactName": "계획비슷한걸-다이어리-맥-${arch}-${version}.${ext}",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "dmg": {
       "title": "계획 다이어리"
