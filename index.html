@@ -669,8 +669,30 @@
           <div class="led-tabs" id="ledgerTabs" role="group" aria-label="보기">
             <button type="button" data-tab="feed" class="is-on" aria-pressed="true">지출 내역</button>
             <button type="button" data-tab="fixed" aria-pressed="false">고정지출</button>
+            <button type="button" data-tab="live" aria-pressed="false">생활비</button>
           </div>
           <div class="led-feed" id="ledgerFeed"></div>
+          <div class="led-right">
+          <section class="led-live" id="ledgerLivePanel" aria-labelledby="ledgerLiveTitle">
+            <div class="led-fixed-head" id="ledgerLiveHead">
+              <h3 id="ledgerLiveTitle"><button type="button" class="led-fixed-fold" id="ledgerLiveFold" aria-expanded="true" aria-controls="ledgerLiveBody">생활비 <span class="led-fixed-fold-chev" aria-hidden="true">▾</span></button></h3>
+              <span class="led-fixed-sum"><span id="ledgerLiveSpent" class="led-live-spent"></span> / <span id="ledgerLiveBudget"></span></span>
+            </div>
+            <div class="led-bar-track led-fixed-track"><div class="led-bar-fill" id="ledgerLiveBar"></div></div>
+            <p class="led-fixed-left" id="ledgerLiveLeft"></p>
+            <p class="led-fixed-help">한 달 생활비 안에서 쓴 돈이에요. 지출 내역에 적은 것만 더해져요.</p>
+            <div class="led-live-body" id="ledgerLiveBody">
+              <p class="led-live-day" id="ledgerLiveDay"></p>
+              <div class="led-live-cats" id="ledgerLiveCats"></div>
+              <form class="led-live-form" id="ledgerLiveForm">
+                <label for="ledgerLiveInput">한 달 생활비</label>
+                <div class="led-live-row">
+                  <input type="text" class="led-field" id="ledgerLiveInput" inputmode="numeric" autocomplete="off" maxlength="17" placeholder="예: 800,000">
+                  <button type="submit" class="btn primary">저장</button>
+                </div>
+              </form>
+            </div>
+          </section>
           <section class="led-fixed" id="ledgerFixedPanel" aria-labelledby="ledgerFixedTitle">
             <div class="led-fixed-head">
               <h3 id="ledgerFixedTitle"><button type="button" class="led-fixed-fold" id="ledgerFixedFold" aria-expanded="true" aria-controls="ledgerFixedList">고정지출 <span class="led-fixed-fold-chev" aria-hidden="true">▾</span></button></h3>
@@ -693,6 +715,7 @@
               </div>
             </form>
           </section>
+          </div>
         </div>
       </div>
       <button type="button" class="btn primary led-fab" id="ledgerFab">＋ 내역 적기</button>

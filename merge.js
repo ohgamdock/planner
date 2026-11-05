@@ -37,6 +37,7 @@
       meals: [],
       ledger: [],
       ledgerFixed: [],
+      ledgerBudget: null,
       events: [],
       projects: { work: [], personal: [] },
       routines: [],
@@ -389,6 +390,10 @@
     d.meals = normList(raw.meals, normMeal);
     d.ledger = normList(raw.ledger, normLedger);
     d.ledgerFixed = normList(raw.ledgerFixed, normFixed);
+    if (isObj(raw.ledgerBudget)) {
+      var ba = Math.floor(Number(raw.ledgerBudget.amount));
+      if (ba >= 0 && ba <= 1e13) d.ledgerBudget = { amount: ba, updatedAt: num(raw.ledgerBudget.updatedAt, 0) || 0 };
+    }
     if (isObj(raw.deleted)) {
       Object.keys(raw.deleted).forEach(function (id) {
         var ts = num(raw.deleted[id], 0);
@@ -606,6 +611,7 @@
     // 가계부: id 기준, 최신 쪽 우선
     out.ledger = mergeList(a.ledger, b.ledger, deleted, function (x) { return x.id; }, combineNote).sort(byCreated);
     out.ledgerFixed = mergeFixed(a.ledgerFixed, b.ledgerFixed, deleted);
+    if (a.ledgerBudget || b.ledgerBudget) out.ledgerBudget = (!b.ledgerBudget || (a.ledgerBudget && a.ledgerBudget.updatedAt >= b.ledgerBudget.updatedAt)) ? a.ledgerBudget : b.ledgerBudget;
     // 식단: id 기준, 최신 쪽 우선
     out.meals = mergeList(a.meals, b.meals, deleted, function (m) { return m.id; }, combineNote).sort(byCreated);
 

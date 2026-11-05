@@ -3160,6 +3160,7 @@
       feed.appendChild(sec);
     });
     renderFixed();
+    renderLive();
     if (!$('ledgerStats').hidden) renderLedgerStats();
   }
   function renderLedgerStats() {
@@ -3443,11 +3444,85 @@
     resetFixedForm();
     renderLedger();
   }
+  // ---- 생활비: 한 달 예산 안에서 일반 지출(지출 내역)을 얼마나 썼는지
+  var LIVE_FOLD_KEY = 'planner.v1.liveFolded';
+  function liveBudget() {
+    if (data.ledgerBudget && data.ledgerBudget.amount > 0) return data.ledgerBudget.amount;
+    // 아직 정하지 않았으면 고정지출의 "생활비" 금액을 쓴다
+    var f = fixedList().filter(function (x) { return /생활비/.test(x.name); })[0];
+    return f ? f.amount : 0;
+  }
+  function setLiveFolded(on) {
+    $('ledgerLivePanel').classList.toggle('is-folded', on);
+    $('ledgerLiveFold').setAttribute('aria-expanded', on ? 'false' : 'true');
+    try { localStorage.setItem(LIVE_FOLD_KEY, on ? '1' : '0'); } catch (e) { /* 무시 */ }
+  }
+  function renderLive() {
+    var mon = ledgerMonth().filter(function (x) { return x.type === 'out'; });
+    var spent = ledgerSum(mon, 'out');
+    var budget = liveBudget();
+    $('ledgerLiveSpent').textContent = won(spent);
+    $('ledgerLiveBudget').textContent = budget ? won(budget) : '예산 없음';
+    var over = budget && spent > budget;
+    $('ledgerLivePanel').classList.toggle('is-over', !!over);
+    $('ledgerLiveBar').style.width = budget ? Math.min(100, Math.round(spent / budget * 100)) + '%' : '0%';
+    $('ledgerLiveLeft').textContent = !budget ? '아래에서 한 달 생활비를 정해 주세요.' : over ? won(spent - budget) + ' 넘었어요' : '아직 ' + won(budget - spent) + ' 남음';
+    // 이번 달이면 남은 날로 나눈 하루 쓸 수 있는 돈
+    var d = new Date(), day = '';
+    if (budget && ledger.y === d.getFullYear() && ledger.m === d.getMonth()) {
+      var daysLeft = new Date(ledger.y, ledger.m + 1, 0).getDate() - d.getDate() + 1;
+      day = over ? '이번 달은 예산을 넘었어요.' : '남은 ' + daysLeft + '일 동안 하루 ' + won(Math.floor((budget - spent) / daysLeft)) + '씩 쓸 수 있어요.';
+    }
+    $('ledgerLiveDay').textContent = day;
+    $('ledgerLiveDay').hidden = !day;
+    var totals = {};
+    mon.forEach(function (x) { totals[x.category] = (totals[x.category] || 0) + x.amount; });
+    var box = $('ledgerLiveCats');
+    box.textContent = '';
+    Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; }).forEach(function (name) {
+      var row = el('div', 'led-bar-row');
+      var line = el('div', 'led-bar-line');
+      line.appendChild(el('span', '', name));
+      line.appendChild(el('span', '', won(totals[name])));
+      row.appendChild(line);
+      var track = el('div', 'led-bar-track');
+      var fill = el('div', 'led-bar-fill');
+      fill.style.width = (spent ? Math.round(totals[name] / spent * 100) : 0) + '%';
+      track.appendChild(fill);
+      row.appendChild(track);
+      box.appendChild(row);
+    });
+    if (!mon.length) box.appendChild(el('p', 'led-empty is-small', '이달 지출 내역이 아직 없어요.'));
+    if (document.activeElement !== $('ledgerLiveInput')) $('ledgerLiveInput').value = budget ? budget.toLocaleString('ko-KR') : '';
+  }
+  function bindLive() {
+    var folded = false;
+    try { folded = localStorage.getItem(LIVE_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
+    setLiveFolded(folded);
+    $('ledgerLiveHead').addEventListener('click', function () { setLiveFolded(!$('ledgerLivePanel').classList.contains('is-folded')); });
+    $('ledgerLiveInput').addEventListener('input', function () {
+      var v = Number(this.value.replace(/[^0-9]/g, '')) || 0;
+      this.value = v ? v.toLocaleString('ko-KR') : '';
+    });
+    $('ledgerLiveForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = Number($('ledgerLiveInput').value.replace(/[^0-9]/g, '')) || 0;
+      if (v <= 0) { toast('생활비 금액을 적어 주세요.', true); return; }
+      data.ledgerBudget = { amount: v, updatedAt: now() };
+      $('ledgerLiveInput').blur();
+      save();
+      renderLedger();
+      toast('한 달 생활비를 ' + won(v) + '으로 정했어요.');
+    });
+  }
+
   function bindFixed() {
+    bindLive();
     $('ledgerTabs').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-tab]');
       if (!b) return;
       $('ledgerLayer').classList.toggle('tab-fixed', b.dataset.tab === 'fixed');
+      $('ledgerLayer').classList.toggle('tab-live', b.dataset.tab === 'live');
       Array.prototype.forEach.call(this.querySelectorAll('button'), function (x) {
         x.classList.toggle('is-on', x === b);
         x.setAttribute('aria-pressed', x === b ? 'true' : 'false');

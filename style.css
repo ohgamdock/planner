@@ -1820,3 +1820,34 @@ body.desktop .meal-day { padding-top: 48px; }
 .led-fixed.is-folded .led-fixed-list, .led-fixed.is-folded .led-fixed-add, .led-fixed.is-folded .led-fixed-form { display: none !important; }
 .led-fixed.is-folded { flex: 0 0 auto; align-self: start; }
 .led-fixed.is-folded .led-fixed-help { margin-bottom: 0; }
+
+/* ---------- 가계부: 생활비 칸 (고정지출 칸과 같은 모양) ---------- */
+.led-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.led-right { display: contents; }
+.led-live { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.led-live .led-live-spent { color: var(--danger); }
+.led-live .led-bar-fill#ledgerLiveBar { background: var(--green); }
+.led-live.is-over .led-bar-fill#ledgerLiveBar { background: var(--danger); }
+.led-live.is-over .led-fixed-left { color: var(--danger); }
+.led-live-body { display: flex; flex-direction: column; gap: 12px; }
+.led-live-day { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--green-soft); color: var(--green-deep); font-weight: 700; font-size: 14px; }
+.led-live-cats .led-empty { padding: 12px 0; }
+.led-live-form { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.led-live-form label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.led-live-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.led-live-row .btn { min-width: 72px; }
+.led-live.is-folded .led-live-body { display: none; }
+.led-live.is-folded .led-fixed-fold-chev { transform: rotate(-90deg); }
+.led-live.is-folded { flex: 0 0 auto; }
+.led-live.is-folded .led-fixed-help { margin-bottom: 0; }
+@media (max-width: 1099px) {
+  #ledgerLayer:not(.tab-live) .led-live { display: none; }
+  #ledgerLayer.tab-live .led-feed { display: none; }
+}
+@media (min-width: 1100px) {
+  .led-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+  .led-right .led-live, .led-right .led-fixed { flex: 0 0 auto; overflow: visible; }
+}
+@media (max-width: 760px) {
+  .led-live { padding: 12px; }
+}
