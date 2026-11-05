@@ -3548,7 +3548,9 @@
     var spent = ledgerSum(entries, 'out');
     $('ledgerLiveSpent').textContent = won(spent);
     $('ledgerLiveBudget').textContent = budget ? won(budget) : '예산 없음';
-    $('ledgerLiveHelp').textContent = budget ? label : '펼쳐서 생활비와 월급일을 정해 주세요.';
+    // 설명 문구는 예산을 아직 안 정했을 때만 보인다
+    $('ledgerLiveHelp').textContent = budget ? '' : '펼쳐서 생활비와 월급일을 정해 주세요.';
+    $('ledgerLiveHelp').hidden = !!budget;
     var over = budget && spent > budget;
     $('ledgerLivePanel').classList.toggle('is-over', !!over);
     $('ledgerLiveBar').style.width = budget ? Math.min(100, Math.round(spent / budget * 100)) + '%' : '0%';
@@ -3559,7 +3561,7 @@
     var dayBox = $('ledgerLiveDay');
     dayBox.textContent = '';
     lines.forEach(function (t, i) { if (i) dayBox.appendChild(document.createElement('br')); dayBox.appendChild(document.createTextNode(t)); });
-    dayBox.hidden = !lines.length;
+    dayBox.hidden = true; // 주차·하루 금액 안내 문구는 쓰지 않는다 (주차별 목록이 대신함)
     renderLiveWeeks(period, entries, today);
     if (document.activeElement !== $('ledgerLiveInput') && !livePeriodPick) $('ledgerLiveInput').value = b.amount ? b.amount.toLocaleString('ko-KR') : '';
     if (document.activeElement !== $('ledgerPayday')) $('ledgerPayday').value = String(b.payday || 0);
