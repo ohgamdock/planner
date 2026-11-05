@@ -3332,6 +3332,12 @@
   var fixedEditId = null;
   var FIXED_PAID_OPEN_KEY = 'planner.v1.fixedPaidOpen';
   var fixedPaidOpen = false;
+  var FIXED_FOLD_KEY = 'planner.v1.fixedFolded';
+  function setFixedFolded(on) {
+    $('ledgerFixedPanel').classList.toggle('is-folded', on);
+    $('ledgerFixedFold').setAttribute('aria-expanded', on ? 'false' : 'true');
+    try { localStorage.setItem(FIXED_FOLD_KEY, on ? '1' : '0'); } catch (e) { /* 무시 */ }
+  }
   try { fixedPaidOpen = localStorage.getItem(FIXED_PAID_OPEN_KEY) === '1'; } catch (e) { /* 무시 */ }
   function fixedItem(f, on) {
     var li = el('li', 'led-fixed-item' + (on ? ' is-paid' : '') + (f.id === fixedEditId ? ' is-editing' : ''));
@@ -3457,6 +3463,13 @@
       save();
       renderLedger();
     });
+    var folded = false;
+    try { folded = localStorage.getItem(FIXED_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
+    setFixedFolded(folded);
+    // 제목 줄(이름·합계) 어디를 눌러도 접고 편다
+    document.querySelector('#ledgerFixedPanel .led-fixed-head').addEventListener('click', function () {
+      setFixedFolded(!$('ledgerFixedPanel').classList.contains('is-folded'));
+    });
     $('ledgerFixedAddBtn').addEventListener('click', function () { resetFixedForm(); showFixedForm(true); $('ledgerFixedName').focus(); });
     $('ledgerFixedList').addEventListener('click', function (e) {
       if (e.target.closest('[data-toggle-paid]')) {
@@ -3477,6 +3490,7 @@
         $('ledgerFixedCat').value = f.category;
         $('ledgerFixedSave').textContent = '수정 저장';
         showFixedForm(true);
+        setFixedFolded(false);
         renderFixed();
         $('ledgerFixedName').focus();
         return;

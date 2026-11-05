@@ -1811,3 +1811,12 @@ body.desktop .meal-day { padding-top: 48px; }
 .led-fixed-item.is-paid .led-fixed-name { text-decoration: none; }
 .led-fixed-list .led-empty.is-small { padding: 14px 12px; font-size: 13.5px; }
 .led-fixed-add { width: 100%; min-height: 44px; font-weight: 700; }
+
+/* 고정지출 칸 전체 접기: 제목·합계·막대·안내만 남김 */
+.led-fixed-head { cursor: pointer; user-select: none; }
+.led-fixed-fold { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; cursor: pointer; }
+.led-fixed-fold-chev { display: inline-block; font-size: 14px; color: var(--muted); transition: transform .2s ease; }
+.led-fixed.is-folded .led-fixed-fold-chev { transform: rotate(-90deg); }
+.led-fixed.is-folded .led-fixed-list, .led-fixed.is-folded .led-fixed-add, .led-fixed.is-folded .led-fixed-form { display: none !important; }
+.led-fixed.is-folded { flex: 0 0 auto; align-self: start; }
+.led-fixed.is-folded .led-fixed-help { margin-bottom: 0; }
