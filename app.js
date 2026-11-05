@@ -3330,6 +3330,32 @@
   // ---------------------------------------------------------------- 가계부: 고정지출
   // 매달 나가는 항목. 그 달에 체크한 것만 빠져나간 것으로 보고 지출 합계에 더한다.
   var fixedEditId = null;
+  var FIXED_PAID_OPEN_KEY = 'planner.v1.fixedPaidOpen';
+  var fixedPaidOpen = false;
+  try { fixedPaidOpen = localStorage.getItem(FIXED_PAID_OPEN_KEY) === '1'; } catch (e) { /* 무시 */ }
+  function fixedItem(f, on) {
+    var li = el('li', 'led-fixed-item' + (on ? ' is-paid' : '') + (f.id === fixedEditId ? ' is-editing' : ''));
+    var label = el('label', 'led-fixed-check');
+    var cb = el('input'); cb.type = 'checkbox'; cb.checked = on; cb.dataset.paid = f.id;
+    cb.setAttribute('aria-label', f.name + ' 이번 달 빠져나감');
+    label.appendChild(cb);
+    var txt = el('span', 'led-fixed-text');
+    txt.appendChild(el('span', 'led-fixed-name', f.name));
+    txt.appendChild(el('span', 'led-fixed-cat', f.category));
+    label.appendChild(txt);
+    li.appendChild(label);
+    li.appendChild(el('strong', 'led-fixed-amount', won(f.amount)));
+    var acts = el('div', 'led-acts');
+    var ed = el('button', 'led-act', '수정'); ed.type = 'button'; ed.dataset.fedit = f.id;
+    var dl = el('button', 'led-act meal-del', '삭제'); dl.type = 'button'; dl.dataset.fdel = f.id;
+    acts.appendChild(ed); acts.appendChild(dl);
+    li.appendChild(acts);
+    return li;
+  }
+  function showFixedForm(on) {
+    $('ledgerFixedForm').hidden = !on;
+    $('ledgerFixedAddBtn').hidden = on;
+  }
   function ledgerMonthKey() { return ledger.y + '-' + pad2(ledger.m + 1); }
   function fixedList() { if (!Array.isArray(data.ledgerFixed)) data.ledgerFixed = []; return data.ledgerFixed; }
   function fixedOfMonth(mk) {
@@ -3348,28 +3374,29 @@
     var box = $('ledgerFixedList');
     box.textContent = '';
     var total = 0, paid = 0;
+    var todo = [], done = [];
     list.forEach(function (f) {
       var on = fixedIsPaid(f, mk);
-      total += f.amount; if (on) paid += f.amount;
-      var li = el('li', 'led-fixed-item' + (on ? ' is-paid' : '') + (f.id === fixedEditId ? ' is-editing' : ''));
-      var label = el('label', 'led-fixed-check');
-      var cb = el('input'); cb.type = 'checkbox'; cb.checked = on; cb.dataset.paid = f.id;
-      cb.setAttribute('aria-label', f.name + ' 이번 달 빠져나감');
-      label.appendChild(cb);
-      var txt = el('span', 'led-fixed-text');
-      txt.appendChild(el('span', 'led-fixed-name', f.name));
-      txt.appendChild(el('span', 'led-fixed-cat', f.category));
-      label.appendChild(txt);
-      li.appendChild(label);
-      li.appendChild(el('strong', 'led-fixed-amount', won(f.amount)));
-      var acts = el('div', 'led-acts');
-      var ed = el('button', 'led-act', '수정'); ed.type = 'button'; ed.dataset.fedit = f.id;
-      var dl = el('button', 'led-act meal-del', '삭제'); dl.type = 'button'; dl.dataset.fdel = f.id;
-      acts.appendChild(ed); acts.appendChild(dl);
-      li.appendChild(acts);
-      box.appendChild(li);
+      total += f.amount;
+      if (on) { paid += f.amount; done.push(f); } else todo.push(f);
     });
+    todo.forEach(function (f) { box.appendChild(fixedItem(f, false)); });
     if (!list.length) box.appendChild(el('li', 'led-empty', '매달 나가는 돈을 아래에 적어 두세요.'));
+    else if (!todo.length) box.appendChild(el('li', 'led-empty is-small', '이달 고정지출이 모두 빠져나갔어요.'));
+    if (done.length) {
+      var head = el('li', 'led-fixed-done-head');
+      var tg = el('button', 'led-fixed-toggle' + (fixedPaidOpen ? ' is-open' : ''));
+      tg.type = 'button'; tg.dataset.togglePaid = '1';
+      tg.setAttribute('aria-expanded', fixedPaidOpen ? 'true' : 'false');
+      tg.appendChild(el('span', '', '✓ 빠져나간 것 ' + done.length + '개'));
+      var right = el('span', 'led-fixed-toggle-right');
+      right.appendChild(el('span', '', won(paid)));
+      right.appendChild(el('span', 'led-fixed-chev', '▾'));
+      tg.appendChild(right);
+      head.appendChild(tg);
+      box.appendChild(head);
+      if (fixedPaidOpen) done.forEach(function (f) { box.appendChild(fixedItem(f, true)); });
+    }
     $('ledgerFixedPaid').textContent = won(paid);
     $('ledgerFixedTotal').textContent = won(total);
     $('ledgerFixedLeft').textContent = total - paid > 0 ? '아직 ' + won(total - paid) + ' 남음' : (total ? '이달 고정지출 다 나갔어요' : '');
@@ -3390,7 +3417,7 @@
     renderFixedCats();
     $('ledgerFixedCat').value = '구독';
     $('ledgerFixedSave').textContent = '추가';
-    $('ledgerFixedCancel').hidden = true;
+    showFixedForm(false);
   }
   function saveFixed() {
     var name = $('ledgerFixedName').value.trim();
@@ -3430,7 +3457,14 @@
       save();
       renderLedger();
     });
+    $('ledgerFixedAddBtn').addEventListener('click', function () { resetFixedForm(); showFixedForm(true); $('ledgerFixedName').focus(); });
     $('ledgerFixedList').addEventListener('click', function (e) {
+      if (e.target.closest('[data-toggle-paid]')) {
+        fixedPaidOpen = !fixedPaidOpen;
+        try { localStorage.setItem(FIXED_PAID_OPEN_KEY, fixedPaidOpen ? '1' : '0'); } catch (err) { /* 무시 */ }
+        renderFixed();
+        return;
+      }
       var ed = e.target.closest('[data-fedit]');
       if (ed) {
         var f = fixedList().filter(function (x) { return x.id === ed.dataset.fedit; })[0];
@@ -3442,7 +3476,7 @@
         if (LEDGER_CATS.out.indexOf(f.category) < 0) { var o = el('option', '', f.category); o.value = f.category; $('ledgerFixedCat').appendChild(o); }
         $('ledgerFixedCat').value = f.category;
         $('ledgerFixedSave').textContent = '수정 저장';
-        $('ledgerFixedCancel').hidden = false;
+        showFixedForm(true);
         renderFixed();
         $('ledgerFixedName').focus();
         return;

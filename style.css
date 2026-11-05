@@ -1800,3 +1800,14 @@ body.desktop .meal-day { padding-top: 48px; }
   .led-fixed-item { grid-template-columns: minmax(0, 1fr) auto; }
   .led-fixed-item .led-acts { grid-column: 1 / -1; justify-content: flex-end; }
 }
+
+/* 고정지출: 빠져나간 묶음 접기, 추가 칸 접기 */
+.led-fixed-done-head { border-top: 1px solid var(--line); background: var(--bg); }
+.led-fixed-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.led-fixed-toggle-right { display: flex; align-items: center; gap: 8px; }
+.led-fixed-chev { display: inline-block; transition: transform .2s ease; }
+.led-fixed-toggle:not(.is-open) .led-fixed-chev { transform: rotate(-90deg); }
+.led-fixed-item.is-paid { background: color-mix(in srgb, var(--bg) 55%, transparent); }
+.led-fixed-item.is-paid .led-fixed-name { text-decoration: none; }
+.led-fixed-list .led-empty.is-small { padding: 14px 12px; font-size: 13.5px; }
+.led-fixed-add { width: 100%; min-height: 44px; font-weight: 700; }
