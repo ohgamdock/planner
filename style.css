@@ -1858,3 +1858,24 @@ body.desktop .meal-day { padding-top: 48px; }
 .led-live-payday { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
 .led-live-payday select { font-weight: 400; color: var(--text); }
 .led-live-day { line-height: 1.7; }
+
+/* 생활비: 주차별 접는 목록 */
+.led-live-cats { display: flex; flex-direction: column; gap: 8px; }
+.led-week { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.led-week.is-now { border-color: var(--green); }
+.led-week-head { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.led-week-title { display: flex; flex-direction: column; min-width: 0; }
+.led-week-title strong { font-size: 14px; }
+.led-week-range { font-size: 12px; color: var(--muted); }
+.led-week-sum { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+.led-week.is-over .led-week-spent { color: var(--danger); }
+.led-week:not(.is-open) .led-fixed-fold-chev { transform: rotate(-90deg); }
+.led-week-track { margin: 0 12px 10px; height: 6px; }
+.led-week-track .led-bar-fill { background: var(--green); }
+.led-week.is-over .led-week-track .led-bar-fill { background: var(--danger); }
+.led-week-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.led-week-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 12px; }
+.led-week-item + .led-week-item { border-top: 1px solid var(--line); }
+.led-week-date { font-size: 12.5px; color: var(--muted); min-width: 34px; }
+.led-week-mid { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.led-week-amount { color: var(--danger); font-size: 14px; white-space: nowrap; }

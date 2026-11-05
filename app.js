@@ -3496,7 +3496,7 @@
     var b = liveBudget();
     var today = new Date();
     var isThisMonth = ledger.y === today.getFullYear() && ledger.m === today.getMonth();
-    var entries, budget, label, daysLeft = 0, weekLine = '';
+    var entries, budget, label, daysLeft = 0, weekLine = '', period = null;
     var outIn = function (a, z) { return (data.ledger || []).filter(function (x) { return x.type === 'out' && x.dayKey >= a && x.dayKey <= z; }); };
     if (b.payday) {
       // 지금 주기에서 보고 있는 달만큼 앞뒤로 옮긴다 (주기를 건너뛰지 않게)
@@ -3504,6 +3504,7 @@
       var shift = (ledger.y * 12 + ledger.m) - (today.getFullYear() * 12 + today.getMonth());
       var c = shift ? payCycle(b.payday, cNow.s.getFullYear(), cNow.s.getMonth() + shift) : cNow;
       entries = outIn(keyOf(c.s), keyOf(c.e));
+      period = { s: c.s, e: c.e, weeks: c.weeks, wb: b.period === 'week' ? b.amount : 0 };
       var range = '월급 주기 ' + fmtMD(c.s) + '~' + fmtMD(c.e);
       if (b.period === 'week') {
         budget = b.amount * c.weeks;
@@ -3527,12 +3528,14 @@
     } else if (b.period === 'week' && isThisMonth) {
       var w = weekRange(today);
       entries = outIn(w.start, w.end);
+      period = { s: w.s, e: w.e, weeks: 1, wb: b.amount };
       budget = b.amount;
       label = '이번 주 ' + fmtMD(w.s) + '~' + fmtMD(w.e) + ' · 한 주 ' + won(b.amount) + ' (월급일을 정하면 월급 주기로 계산해요)';
       daysLeft = 7 - ((today.getDay() + 6) % 7);
     } else {
       entries = ledgerMonth().filter(function (x) { return x.type === 'out'; });
       var dim = new Date(ledger.y, ledger.m + 1, 0).getDate();
+      period = { s: new Date(ledger.y, ledger.m, 1), e: new Date(ledger.y, ledger.m, dim), weeks: Math.floor(dim / 7) + (dim % 7 >= 5 ? 1 : 0), wb: b.period === 'week' ? b.amount : 0 };
       if (b.period === 'week') {
         budget = Math.round(b.amount * dim / 7);
         label = '이 달 기준 · 한 주 ' + won(b.amount) + ' × ' + (Math.round(dim / 7 * 10) / 10) + '주';
@@ -3557,29 +3560,79 @@
     dayBox.textContent = '';
     lines.forEach(function (t, i) { if (i) dayBox.appendChild(document.createElement('br')); dayBox.appendChild(document.createTextNode(t)); });
     dayBox.hidden = !lines.length;
-    var totals = {};
-    entries.forEach(function (x) { totals[x.category] = (totals[x.category] || 0) + x.amount; });
-    var box = $('ledgerLiveCats');
-    box.textContent = '';
-    Object.keys(totals).sort(function (a, z) { return totals[z] - totals[a]; }).forEach(function (name) {
-      var row = el('div', 'led-bar-row');
-      var line = el('div', 'led-bar-line');
-      line.appendChild(el('span', '', name));
-      line.appendChild(el('span', '', won(totals[name])));
-      row.appendChild(line);
-      var track = el('div', 'led-bar-track');
-      var fill = el('div', 'led-bar-fill');
-      fill.style.width = (spent ? Math.round(totals[name] / spent * 100) : 0) + '%';
-      track.appendChild(fill);
-      row.appendChild(track);
-      box.appendChild(row);
-    });
-    if (!entries.length) box.appendChild(el('p', 'led-empty is-small', '이 기간 지출 내역이 아직 없어요.'));
+    renderLiveWeeks(period, entries, today);
     if (document.activeElement !== $('ledgerLiveInput') && !livePeriodPick) $('ledgerLiveInput').value = b.amount ? b.amount.toLocaleString('ko-KR') : '';
     if (document.activeElement !== $('ledgerPayday')) $('ledgerPayday').value = String(b.payday || 0);
     renderLivePeriod();
   }
+  var liveOpenWeeks = {}; // 펼친 주차 (기간 시작일+주차) — 정하지 않은 주는 이번 주만 펼침
+  function renderLiveWeeks(p, entries, today) {
+    var box = $('ledgerLiveCats');
+    box.textContent = '';
+    if (!p) return;
+    var groups = [];
+    for (var i = 0; i < p.weeks; i++) {
+      var ws = addDays(p.s, i * 7), we = addDays(ws, 6);
+      if (we > p.e || i === p.weeks - 1 && addDays(p.s, p.weeks * 7) > p.e) we = we > p.e ? p.e : we;
+      groups.push({ label: (i + 1) + '주차', s: ws, e: we, budget: p.wb });
+    }
+    var restStart = addDays(p.s, p.weeks * 7);
+    if (restStart <= p.e) groups.push({ label: '남는 날', s: restStart, e: p.e, budget: 0, rest: true });
+    var tKey = keyOf(today);
+    groups.forEach(function (g, i) {
+      var sk = keyOf(g.s), ek = keyOf(g.e);
+      var list = entries.filter(function (x) { return x.dayKey >= sk && x.dayKey <= ek; })
+        .sort(function (a, z) { return a.dayKey < z.dayKey ? -1 : a.dayKey > z.dayKey ? 1 : a.createdAt - z.createdAt; });
+      var spent = ledgerSum(list, 'out');
+      var isNow = tKey >= sk && tKey <= ek;
+      var key = keyOf(p.s) + '#' + i;
+      var open = key in liveOpenWeeks ? liveOpenWeeks[key] : isNow;
+      var over = g.budget && spent > g.budget;
+      var wrap = el('div', 'led-week' + (open ? ' is-open' : '') + (isNow ? ' is-now' : '') + (over ? ' is-over' : ''));
+      var head = el('button', 'led-week-head');
+      head.type = 'button'; head.dataset.week = key;
+      head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var left = el('span', 'led-week-title');
+      left.appendChild(el('strong', '', g.label + (isNow ? ' · 이번 주' : '')));
+      left.appendChild(el('span', 'led-week-range', fmtMD(g.s) + '~' + fmtMD(g.e) + (g.rest ? ' · 계산에서 뺌' : '')));
+      head.appendChild(left);
+      var right = el('span', 'led-week-sum');
+      right.appendChild(el('span', 'led-week-spent', won(spent) + (g.budget ? ' / ' + won(g.budget) : '')));
+      right.appendChild(el('span', 'led-fixed-fold-chev', '▾'));
+      head.appendChild(right);
+      wrap.appendChild(head);
+      if (g.budget) {
+        var track = el('div', 'led-bar-track led-week-track');
+        var fill = el('div', 'led-bar-fill');
+        fill.style.width = Math.min(100, Math.round(spent / g.budget * 100)) + '%';
+        track.appendChild(fill);
+        wrap.appendChild(track);
+      }
+      if (open) {
+        var ul = el('ul', 'led-week-list');
+        list.forEach(function (x) {
+          var li = el('li', 'led-week-item');
+          li.appendChild(el('span', 'led-week-date', fmtMD(parseKey(x.dayKey))));
+          var mid = el('span', 'led-week-mid');
+          mid.appendChild(el('span', 'meal-slot-tag', x.category));
+          if (x.memo) mid.appendChild(el('span', 'led-memo', x.memo));
+          li.appendChild(mid);
+          li.appendChild(el('strong', 'led-week-amount', '-' + won(x.amount)));
+          ul.appendChild(li);
+        });
+        if (!list.length) ul.appendChild(el('li', 'led-empty is-small', '이 주에는 지출 내역이 없어요.'));
+        wrap.appendChild(ul);
+      }
+      box.appendChild(wrap);
+    });
+  }
   function bindLive() {
+    $('ledgerLiveCats').addEventListener('click', function (e) {
+      var h = e.target.closest('[data-week]');
+      if (!h) return;
+      liveOpenWeeks[h.dataset.week] = h.getAttribute('aria-expanded') !== 'true';
+      renderLive();
+    });
     var folded = false;
     try { folded = localStorage.getItem(LIVE_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
     setLiveFolded(folded);
