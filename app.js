@@ -3773,6 +3773,63 @@
     resetFixedForm();
   }
 
+  // ---------------------------------------------------------------- 윈도우 앱 다운로드(웹) · 업데이트(데스크톱)
+  function isPhoneApp() { var C = window.Capacitor; return !!(C && C.isNativePlatform && C.isNativePlatform()); }
+  function bindAppDownload() {
+    var box = $('appGetBox');
+    if (!box) return;
+    if (window.plannerDesktop && window.plannerDesktop.version) {
+      // 데스크톱: 지금 버전과 업데이트 확인
+      box.hidden = false;
+      $('appGetWeb').hidden = true;
+      $('appGetDesk').hidden = false;
+      window.plannerDesktop.version().then(function (v) { $('appVersionText').textContent = '지금 버전 ' + v; });
+      $('appCheckBtn').addEventListener('click', function () {
+        var btn = this; btn.disabled = true; btn.textContent = '확인 중…';
+        window.plannerDesktop.checkUpdate().then(function (r) {
+          btn.disabled = false; btn.textContent = '업데이트 확인';
+          if (!r || !r.ok) { toast('서버에 연결하지 못했어요. 인터넷을 확인해 주세요.', true); return; }
+          if (r.has) showUpdateBar({ phase: 'available', version: r.version, current: r.current });
+          else toast('최신 버전이에요 (' + r.current + ').');
+        });
+      });
+      window.plannerDesktop.onUpdate(showUpdateBar);
+      $('updateGo').addEventListener('click', function () { window.plannerDesktop.installUpdate(); });
+      $('updateLater').addEventListener('click', function () { $('updateBar').hidden = true; });
+      return;
+    }
+    if (window.plannerDesktop || isPhoneApp()) return; // 옛 데스크톱 앱·휴대폰 앱에서는 숨김
+    // 웹: 윈도우 앱 받기
+    box.hidden = false;
+    fetch(apiUrl('version'), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (v) {
+      if (!v) { box.hidden = true; return; }
+      $('appGetLink').href = serverBase() + v.url;
+      $('appGetTop').href = serverBase() + v.url;
+      $('appGetTop').hidden = false;
+      $('appGetMeta').textContent = '버전 ' + v.version + ' · ' + Math.round(v.size / 1048576) + 'MB · 윈도우 10/11';
+    }).catch(function () { box.hidden = true; });
+  }
+  function showUpdateBar(m) {
+    if (!m) return;
+    var bar = $('updateBar');
+    bar.hidden = false;
+    var go = $('updateGo'), later = $('updateLater'), track = $('updateTrack');
+    if (m.phase === 'available') {
+      $('updateText').textContent = '새 버전 ' + m.version + '이 나왔어요 (지금 ' + m.current + '). 기록은 그대로 남아요.';
+      go.hidden = false; later.hidden = false; track.hidden = true; go.disabled = false;
+    } else if (m.phase === 'downloading') {
+      $('updateText').textContent = '새 버전 받는 중… ' + (m.percent || 0) + '%';
+      go.hidden = true; later.hidden = true; track.hidden = false;
+      $('updateFill').style.width = (m.percent || 0) + '%';
+    } else if (m.phase === 'installing') {
+      $('updateText').textContent = '설치 창을 여는 중이에요. 설치가 끝나면 새 버전으로 다시 열려요.';
+      track.hidden = true;
+    } else if (m.phase === 'error') {
+      $('updateText').textContent = '업데이트를 받지 못했어요: ' + (m.message || '') + ' — 다시 눌러 주세요.';
+      go.hidden = false; later.hidden = false; track.hidden = true;
+    }
+  }
+
   // ---------------------------------------------------------------- 파티 모드
   // 빠른 기록 칸에 "파티파티"라고 적으면 클럽 테마가 켜지고, "그만!!!"이라고 적으면 원래대로 돌아온다.
   var PARTY_KEY = 'planner.v1.party';
@@ -4250,6 +4307,7 @@
     bindTheme();
     bindSecret();
     bindFishing();
+    bindAppDownload();
     bindMeals();
     bindLedger();
     bindFixed();

@@ -34,6 +34,7 @@
 
       <div class="topbar-right">
         <span class="today-date" id="todayDate"></span>
+        <a class="btn ghost small app-get-top" id="appGetTop" href="#" download hidden title="윈도우 앱 받기">💻 윈도우 앱</a>
         <button type="button" class="btn ghost icon gear" id="syncStatusBtn" aria-expanded="false" aria-controls="syncPanel" title="설정" aria-label="설정"><span class="gear-dot" id="syncDot" aria-hidden="true"></span>⚙</button>
       </div>
     </header>
@@ -118,6 +119,19 @@
         <button type="button" class="btn ghost small" id="backupBtn">백업 파일 내려받기</button>
         <button type="button" class="btn ghost small" id="restoreBtn">백업 불러오기</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden>
+      </div>
+      <div class="app-get" id="appGetBox" hidden>
+        <div id="appGetWeb">
+          <h3>💻 윈도우 앱으로 쓰기</h3>
+          <p>컴퓨터에 설치하면 창 하나로 바로 열리고, 아침 알림도 받을 수 있어요.</p>
+          <a class="btn primary" id="appGetLink" href="#" download>윈도우 앱 받기</a>
+          <span class="app-get-meta" id="appGetMeta"></span>
+        </div>
+        <div id="appGetDesk" hidden>
+          <h3>앱 업데이트</h3>
+          <p id="appVersionText"></p>
+          <button type="button" class="btn ghost small" id="appCheckBtn">업데이트 확인</button>
+        </div>
       </div>
     </section>
 
@@ -625,6 +639,14 @@
       <div class="fish-dex-grid" id="fishDexGrid"></div>
       <div class="fish-dex-close-bar"><button type="button" class="btn primary" id="fishDexClose2">✕ 도감 닫기</button></div>
     </div>
+  </div>
+
+  <!-- 데스크톱 앱: 새 버전 알림 -->
+  <div class="update-bar" id="updateBar" role="status" hidden>
+    <span class="update-text" id="updateText"></span>
+    <div class="update-bar-track" id="updateTrack" hidden><div class="update-bar-fill" id="updateFill"></div></div>
+    <button type="button" class="btn primary small" id="updateGo">지금 업데이트</button>
+    <button type="button" class="btn ghost small" id="updateLater">나중에</button>
   </div>
 
   <!-- 가계부: 빠른 기록에 "가계부"라고 치면 열리는 화면 -->

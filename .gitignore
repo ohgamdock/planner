@@ -11,3 +11,4 @@ mobile/*.jks
 downloads/*.apk
 android/app/src/main/assets/public/
 *.log
+downloads/*.exe

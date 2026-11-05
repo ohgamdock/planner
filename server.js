@@ -204,6 +204,11 @@ async function handleApi(req, res, url) {
     res.writeHead(204, CORS);
     return res.end();
   }
+  if (url.pathname === '/api/version') {
+    const info = latestWindows();
+    if (!info) return sendJson(res, 404, { error: '설치 파일 없음' });
+    return sendJson(res, 200, { version: info.version, size: info.size, url: '/download/windows' });
+  }
   if (url.pathname === '/api/health') {
     return sendJson(res, 200, { ok: true, time: Date.now(), realtime: true });
   }
@@ -253,7 +258,29 @@ async function handleApi(req, res, url) {
 // 화면 파일 버전 꼬리표: 서버가 시작될 때(=새 코드가 올라갈 때) 바뀌어 옛 파일이 섞여 쓰이지 않게 한다
 const BUILD_STAMP = Date.now().toString(36);
 
+// 윈도우 설치 파일: downloads/latest.json 의 { version, file } 을 따른다
+function latestWindows() {
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(ROOT, 'downloads', 'latest.json'), 'utf8'));
+    if (!/^\d+\.\d+\.\d+$/.test(j.version) || !/^[A-Za-z0-9._-]+\.exe$/.test(j.file)) return null;
+    const file = path.join(ROOT, 'downloads', j.file);
+    return { version: j.version, file, size: fs.statSync(file).size };
+  } catch (e) { return null; }
+}
+
 function handleStatic(req, res, url) {
+  if (url.pathname === '/download/windows') {
+    const info = latestWindows();
+    if (!info) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('설치 파일이 아직 없어요'); }
+    res.writeHead(200, Object.assign({
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': info.size,
+      'Content-Disposition': 'attachment; filename="planner-setup-' + info.version + '.exe"',
+      'Cache-Control': 'no-cache'
+    }, CORS));
+    if (req.method === 'HEAD') return res.end();
+    return fs.createReadStream(info.file).pipe(res);
+  }
   const entry = STATIC[url.pathname];
   if (!entry) {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });

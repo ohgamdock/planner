@@ -147,6 +147,59 @@ async function startServer() {
   }
 }
 
+// ---- 업데이트: 서버의 최신 버전과 비교해서 새 버전이면 화면에 알리고, 누르면 받아서 설치한다
+const UPDATE_BASE = 'https://planner.34-50-58-33.sslip.io';
+function newerVersion(a, b) { // a 가 b 보다 새 버전이면 true
+  const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); }
+  return false;
+}
+let latestInfo = null;
+async function checkUpdate(tell) {
+  try {
+    const r = await fetch(UPDATE_BASE + '/api/version', { cache: 'no-store' });
+    if (!r.ok) return { ok: false };
+    const info = await r.json();
+    const current = app.getVersion();
+    const has = !!info.version && newerVersion(info.version, current);
+    latestInfo = has ? info : null;
+    if (has && tell && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('planner:update', { phase: 'available', version: info.version, current });
+    return { ok: true, has, version: info.version, current };
+  } catch (e) { return { ok: false }; }
+}
+async function installUpdate() {
+  if (!latestInfo) { const c = await checkUpdate(false); if (!c.has) return; }
+  const send = (m) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('planner:update', m); };
+  try {
+    send({ phase: 'downloading', percent: 0 });
+    const r = await fetch(UPDATE_BASE + latestInfo.url);
+    if (!r.ok || !r.body) throw new Error('HTTP ' + r.status);
+    const total = Number(r.headers.get('content-length')) || latestInfo.size || 0;
+    const file = path.join(app.getPath('temp'), 'planner-setup-' + latestInfo.version + '.exe');
+    const outStream = fs.createWriteStream(file);
+    const reader = r.body.getReader();
+    let got = 0, lastPct = -1;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      got += value.length;
+      if (!outStream.write(Buffer.from(value))) await new Promise((ok) => outStream.once('drain', ok));
+      const pct = total ? Math.floor(got / total * 100) : 0;
+      if (pct !== lastPct) { lastPct = pct; send({ phase: 'downloading', percent: pct }); }
+    }
+    await new Promise((ok, bad) => { outStream.end(ok); outStream.on('error', bad); });
+    if (total && got !== total) throw new Error('다 받지 못했어요');
+    send({ phase: 'installing' });
+    // 설치 프로그램을 띄우고 앱은 끝낸다 (기록은 같은 폴더에 남아 새 버전이 그대로 읽는다)
+    const { spawn } = require('child_process');
+    // /S: 창 없이 원래 설치 위치에 덮어쓰기, --force-run: 끝나면 새 버전을 바로 연다
+    spawn(file, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
+    setTimeout(() => { quitting = true; app.quit(); }, 800);
+  } catch (e) {
+    send({ phase: 'error', message: String(e && e.message || e) });
+  }
+}
+
 // 하루 한 번 화면 기록을 파일로 남긴다 (업데이트·사고 대비). userData/backups 에 최근 14개.
 function autoBackup() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -365,6 +418,12 @@ app.whenReady().then(async () => {
   // 화면에서 보내는 요청: 아침 알림 띄우기 / 창 앞으로
   ipcMain.on('planner:notify', (e, msg) => { if (msg && msg.title) showNotification(msg.title, msg.body || ''); });
   ipcMain.on('planner:show', showWindow);
+  ipcMain.handle('planner:version', () => app.getVersion());
+  ipcMain.handle('planner:check-update', () => checkUpdate(false));
+  ipcMain.on('planner:install-update', () => { installUpdate(); });
+  // 켜고 잠시 뒤, 그리고 6시간마다 새 버전 확인
+  setTimeout(() => checkUpdate(true), 15000);
+  setInterval(() => checkUpdate(true), 6 * 60 * 60 * 1000);
   ipcMain.on('planner:bar', (e, m) => {
     if (!mainWindow || !m || !/^#[0-9a-fA-F]{6}$/.test(m.color) || !/^#[0-9a-fA-F]{6}$/.test(m.symbolColor)) return;
     try { mainWindow.setTitleBarOverlay({ color: m.color, symbolColor: m.symbolColor, height: 44 }); } catch (err) { /* 무시 */ }

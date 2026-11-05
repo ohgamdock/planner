@@ -1893,3 +1893,22 @@ body.desktop .meal-day { padding-top: 48px; }
 body.desktop .app { padding-top: 74px; }
 /* 어두운 테마: 상단 앱 이름이 바탕에 묻히지 않게 */
 html[data-theme="dark"] .greet { color: var(--text); }
+
+/* 윈도우 앱 받기(웹) · 업데이트(데스크톱) */
+.app-get { margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.app-get h3 { margin: 0 0 4px; font-size: 15px; }
+.app-get p { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.app-get .btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.app-get-meta { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.update-bar { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: min(640px, calc(100vw - 24px)); padding: 12px 14px; border-radius: 14px; background: var(--card); color: var(--text); border: 1px solid var(--green); box-shadow: 0 16px 40px -12px rgba(0, 0, 0, .45); }
+.update-text { flex: 1 1 260px; font-size: 14px; font-weight: 700; }
+.update-bar-track { flex: 1 1 100%; height: 8px; border-radius: 999px; background: var(--bg); overflow: hidden; }
+.update-bar-fill { height: 100%; width: 0; background: var(--green); transition: width .2s ease; }
+
+.app-get-top { text-decoration: none; white-space: nowrap; }
+@media (max-width: 760px) { .app-get-top { display: none !important; } }
+/* 설정: 다이어리 이름 칸이 세로로 늘어나지 않게 */
+#titleForm { align-items: center; }
+#titleForm input, #titleForm button { height: auto; min-height: 40px; align-self: center; }
+.sync-title, #titleForm { flex: 0 0 auto !important; height: auto !important; min-height: 0 !important; }
+.app-get-top, .app-get-top:visited { color: var(--text); }
