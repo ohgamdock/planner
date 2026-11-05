@@ -3120,7 +3120,7 @@
   function renderLedger() {
     $('ledgerMonthTitle').textContent = ledger.y + '년 ' + (ledger.m + 1) + '월';
     var mon = ledgerMonth();
-    var inc = ledgerSum(mon, 'in'), out = ledgerSum(mon, 'out');
+    var inc = ledgerSum(mon, 'in'), out = ledgerSum(mon, 'out') + ledgerSum(fixedPaidAsEntries(ledgerMonthKey()), 'out');
     $('ledgerIn').textContent = won(inc);
     $('ledgerOut').textContent = won(out);
     $('ledgerLeft').textContent = (inc - out < 0 ? '-' : '') + won(Math.abs(inc - out));
@@ -3159,13 +3159,14 @@
       });
       feed.appendChild(sec);
     });
+    renderFixed();
     if (!$('ledgerStats').hidden) renderLedgerStats();
   }
   function renderLedgerStats() {
     $('ledgerStatsTitle').textContent = ledger.y + '년 ' + (ledger.m + 1) + '월 분류별';
     var box = $('ledgerStatsBody');
     box.textContent = '';
-    var mon = ledgerMonth();
+    var mon = ledgerMonth().concat(fixedPaidAsEntries(ledgerMonthKey()));
     [['out', '지출'], ['in', '수입']].forEach(function (t) {
       var totals = {}, sum = 0;
       mon.forEach(function (x) {
@@ -3324,6 +3325,146 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !$('ledgerLayer').hidden) ledgerBack();
     });
+  }
+
+  // ---------------------------------------------------------------- 가계부: 고정지출
+  // 매달 나가는 항목. 그 달에 체크한 것만 빠져나간 것으로 보고 지출 합계에 더한다.
+  var fixedEditId = null;
+  function ledgerMonthKey() { return ledger.y + '-' + pad2(ledger.m + 1); }
+  function fixedList() { if (!Array.isArray(data.ledgerFixed)) data.ledgerFixed = []; return data.ledgerFixed; }
+  function fixedOfMonth(mk) {
+    return fixedList().filter(function (f) { return !f.startMonth || f.startMonth <= mk; });
+  }
+  function fixedIsPaid(f, mk) { return (f.paid && f.paid[mk]) > 0; }
+  // 이달 체크된 고정지출을 일반 내역과 같은 모양으로 (합계·분류별에 쓰임)
+  function fixedPaidAsEntries(mk) {
+    return fixedOfMonth(mk).filter(function (f) { return fixedIsPaid(f, mk); }).map(function (f) {
+      return { type: 'out', category: f.category, amount: f.amount };
+    });
+  }
+  function renderFixed() {
+    var mk = ledgerMonthKey();
+    var list = fixedOfMonth(mk);
+    var box = $('ledgerFixedList');
+    box.textContent = '';
+    var total = 0, paid = 0;
+    list.forEach(function (f) {
+      var on = fixedIsPaid(f, mk);
+      total += f.amount; if (on) paid += f.amount;
+      var li = el('li', 'led-fixed-item' + (on ? ' is-paid' : '') + (f.id === fixedEditId ? ' is-editing' : ''));
+      var label = el('label', 'led-fixed-check');
+      var cb = el('input'); cb.type = 'checkbox'; cb.checked = on; cb.dataset.paid = f.id;
+      cb.setAttribute('aria-label', f.name + ' 이번 달 빠져나감');
+      label.appendChild(cb);
+      var txt = el('span', 'led-fixed-text');
+      txt.appendChild(el('span', 'led-fixed-name', f.name));
+      txt.appendChild(el('span', 'led-fixed-cat', f.category));
+      label.appendChild(txt);
+      li.appendChild(label);
+      li.appendChild(el('strong', 'led-fixed-amount', won(f.amount)));
+      var acts = el('div', 'led-acts');
+      var ed = el('button', 'led-act', '수정'); ed.type = 'button'; ed.dataset.fedit = f.id;
+      var dl = el('button', 'led-act meal-del', '삭제'); dl.type = 'button'; dl.dataset.fdel = f.id;
+      acts.appendChild(ed); acts.appendChild(dl);
+      li.appendChild(acts);
+      box.appendChild(li);
+    });
+    if (!list.length) box.appendChild(el('li', 'led-empty', '매달 나가는 돈을 아래에 적어 두세요.'));
+    $('ledgerFixedPaid').textContent = won(paid);
+    $('ledgerFixedTotal').textContent = won(total);
+    $('ledgerFixedLeft').textContent = total - paid > 0 ? '아직 ' + won(total - paid) + ' 남음' : (total ? '이달 고정지출 다 나갔어요' : '');
+    $('ledgerFixedBar').style.width = total ? Math.round(paid / total * 100) + '%' : '0%';
+  }
+  function renderFixedCats() {
+    var sel = $('ledgerFixedCat');
+    var cur = sel.value;
+    sel.textContent = '';
+    LEDGER_CATS.out.forEach(function (c) { var o = el('option', '', c); o.value = c; sel.appendChild(o); });
+    if (cur && LEDGER_CATS.out.indexOf(cur) < 0) { var o = el('option', '', cur); o.value = cur; sel.appendChild(o); }
+    sel.value = cur || '구독';
+  }
+  function resetFixedForm() {
+    fixedEditId = null;
+    $('ledgerFixedName').value = '';
+    $('ledgerFixedAmount').value = '';
+    renderFixedCats();
+    $('ledgerFixedCat').value = '구독';
+    $('ledgerFixedSave').textContent = '추가';
+    $('ledgerFixedCancel').hidden = true;
+  }
+  function saveFixed() {
+    var name = $('ledgerFixedName').value.trim();
+    var amount = Number($('ledgerFixedAmount').value.replace(/[^0-9]/g, '')) || 0;
+    if (!name) { toast('이름을 적어 주세요.', true); $('ledgerFixedName').focus(); return; }
+    if (amount <= 0) { toast('금액을 적어 주세요.', true); $('ledgerFixedAmount').focus(); return; }
+    var cat = $('ledgerFixedCat').value || '기타';
+    var t = now();
+    if (fixedEditId) {
+      var f = fixedList().filter(function (x) { return x.id === fixedEditId; })[0];
+      if (f) { f.name = name; f.amount = amount; f.category = cat; f.updatedAt = t; }
+    } else {
+      fixedList().push({ id: M.uid(), name: name, amount: amount, category: cat, startMonth: ledgerMonthKey(), paid: {}, createdAt: t, updatedAt: t });
+    }
+    save();
+    toast(fixedEditId ? '고정지출을 고쳤어요.' : '고정지출에 넣었어요.');
+    resetFixedForm();
+    renderLedger();
+  }
+  function bindFixed() {
+    $('ledgerTabs').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-tab]');
+      if (!b) return;
+      $('ledgerLayer').classList.toggle('tab-fixed', b.dataset.tab === 'fixed');
+      Array.prototype.forEach.call(this.querySelectorAll('button'), function (x) {
+        x.classList.toggle('is-on', x === b);
+        x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+      });
+    });
+    $('ledgerFixedList').addEventListener('change', function (e) {
+      var id = e.target.dataset && e.target.dataset.paid;
+      if (!id) return;
+      var f = fixedList().filter(function (x) { return x.id === id; })[0];
+      if (!f) return;
+      if (!f.paid) f.paid = {};
+      f.paid[ledgerMonthKey()] = e.target.checked ? now() : -now();
+      save();
+      renderLedger();
+    });
+    $('ledgerFixedList').addEventListener('click', function (e) {
+      var ed = e.target.closest('[data-fedit]');
+      if (ed) {
+        var f = fixedList().filter(function (x) { return x.id === ed.dataset.fedit; })[0];
+        if (!f) return;
+        fixedEditId = f.id;
+        $('ledgerFixedName').value = f.name;
+        $('ledgerFixedAmount').value = f.amount.toLocaleString('ko-KR');
+        renderFixedCats();
+        if (LEDGER_CATS.out.indexOf(f.category) < 0) { var o = el('option', '', f.category); o.value = f.category; $('ledgerFixedCat').appendChild(o); }
+        $('ledgerFixedCat').value = f.category;
+        $('ledgerFixedSave').textContent = '수정 저장';
+        $('ledgerFixedCancel').hidden = false;
+        renderFixed();
+        $('ledgerFixedName').focus();
+        return;
+      }
+      var dl = e.target.closest('[data-fdel]');
+      if (dl) {
+        var g = fixedList().filter(function (x) { return x.id === dl.dataset.fdel; })[0];
+        if (!g || !confirm('‘' + g.name + '’ 고정지출을 지울까요?\n지난달 체크 기록도 함께 사라져요.')) return;
+        data.ledgerFixed = fixedList().filter(function (x) { return x.id !== g.id; });
+        tombstone(g.id);
+        if (fixedEditId === g.id) resetFixedForm();
+        save();
+        renderLedger();
+      }
+    });
+    $('ledgerFixedAmount').addEventListener('input', function () {
+      var v = Number(this.value.replace(/[^0-9]/g, '')) || 0;
+      this.value = v ? v.toLocaleString('ko-KR') : '';
+    });
+    $('ledgerFixedForm').addEventListener('submit', function (e) { e.preventDefault(); saveFixed(); });
+    $('ledgerFixedCancel').addEventListener('click', function () { resetFixedForm(); renderFixed(); });
+    resetFixedForm();
   }
 
   // ---------------------------------------------------------------- 파티 모드
@@ -3805,6 +3946,7 @@
     bindFishing();
     bindMeals();
     bindLedger();
+    bindFixed();
     if (window.plannerDesktop) { document.body.classList.add('desktop'); if (/Mac/i.test(navigator.platform)) document.body.classList.add('mac'); }
 
     // 달력

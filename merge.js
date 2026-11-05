@@ -36,6 +36,7 @@
       fishdex: {},
       meals: [],
       ledger: [],
+      ledgerFixed: [],
       events: [],
       projects: { work: [], personal: [] },
       routines: [],
@@ -83,6 +84,40 @@
     if (DATE_RE.test(dk)) task.dayKey = dk;
     if (t.logged) task.logged = true;
     return task;
+  }
+
+  // 고정지출: 매달 나가는 항목. paid 는 달(YYYY-MM)별로 +시각(빠져나감) / -시각(아직) — 큰 절댓값이 최신
+  var MONTH_RE = /^\d{4}-\d{2}$/;
+  function normFixed(x) {
+    if (!isObj(x)) return null;
+    var name = str(x.name).trim().slice(0, 40);
+    var amount = Math.floor(Number(x.amount));
+    if (!name || !(amount > 0) || amount > 1e13) return null;
+    var paid = {};
+    if (isObj(x.paid)) Object.keys(x.paid).forEach(function (m) { var v = Number(x.paid[m]); if (MONTH_RE.test(m) && isFinite(v) && v) paid[m] = v; });
+    var created = num(x.createdAt, num(x.updatedAt, 0)) || 0;
+    return {
+      id: str(x.id) || uid(),
+      name: name,
+      amount: amount,
+      category: str(x.category).trim().slice(0, 20) || '기타',
+      startMonth: MONTH_RE.test(str(x.startMonth)) ? x.startMonth : '',
+      paid: paid,
+      createdAt: created,
+      updatedAt: num(x.updatedAt, created) || created
+    };
+  }
+  function mergeFixed(a, b, deleted) {
+    var byId = {}, order = [];
+    a.concat(b).forEach(function (f) {
+      if (deleted[f.id]) return;
+      var cur = byId[f.id];
+      if (!cur) { byId[f.id] = JSON.parse(JSON.stringify(f)); order.push(f.id); return; }
+      var paid = cur.paid;
+      Object.keys(f.paid).forEach(function (m) { if (!paid[m] || Math.abs(f.paid[m]) > Math.abs(paid[m])) paid[m] = f.paid[m]; });
+      if (f.updatedAt > cur.updatedAt) { byId[f.id] = JSON.parse(JSON.stringify(f)); byId[f.id].paid = paid; }
+    });
+    return order.map(function (id) { return byId[id]; }).sort(byCreated);
   }
 
   // 가계부: 수입·지출 한 건
@@ -353,6 +388,7 @@
     d.routines = normList(raw.routines, normRoutine);
     d.meals = normList(raw.meals, normMeal);
     d.ledger = normList(raw.ledger, normLedger);
+    d.ledgerFixed = normList(raw.ledgerFixed, normFixed);
     if (isObj(raw.deleted)) {
       Object.keys(raw.deleted).forEach(function (id) {
         var ts = num(raw.deleted[id], 0);
@@ -377,6 +413,7 @@
       d.routines.length === 0 &&
       d.meals.length === 0 &&
       d.ledger.length === 0 &&
+      d.ledgerFixed.length === 0 &&
       d.projects.work.length === 0 &&
       d.projects.personal.length === 0;
   }
@@ -384,7 +421,7 @@
   // 사용자 입력 없이 초기 예시만 들어 있는 상태인가? (다른 기기 코드로 연결할 때 예시는 버린다)
   function isOnlySeeds(d) {
     d = normalize(d);
-    if (d.notes.length || d.events.length || d.routines.length || d.meals.length || d.ledger.length) return false;
+    if (d.notes.length || d.events.length || d.routines.length || d.meals.length || d.ledger.length || d.ledgerFixed.length) return false;
     var allSeed = true;
     Object.keys(d.days).forEach(function (k) {
       d.days[k].tasks.forEach(function (t) { if (!t.seed) allSeed = false; });
@@ -568,6 +605,7 @@
 
     // 가계부: id 기준, 최신 쪽 우선
     out.ledger = mergeList(a.ledger, b.ledger, deleted, function (x) { return x.id; }, combineNote).sort(byCreated);
+    out.ledgerFixed = mergeFixed(a.ledgerFixed, b.ledgerFixed, deleted);
     // 식단: id 기준, 최신 쪽 우선
     out.meals = mergeList(a.meals, b.meals, deleted, function (m) { return m.id; }, combineNote).sort(byCreated);
 

@@ -665,7 +665,34 @@
             </div>
           </form>
         </div>
-        <div class="led-feed" id="ledgerFeed"></div>
+        <div class="led-side">
+          <div class="led-tabs" id="ledgerTabs" role="group" aria-label="보기">
+            <button type="button" data-tab="feed" class="is-on" aria-pressed="true">지출 내역</button>
+            <button type="button" data-tab="fixed" aria-pressed="false">고정지출</button>
+          </div>
+          <div class="led-feed" id="ledgerFeed"></div>
+          <section class="led-fixed" id="ledgerFixedPanel" aria-labelledby="ledgerFixedTitle">
+            <div class="led-fixed-head">
+              <h3 id="ledgerFixedTitle">고정지출</h3>
+              <span class="led-fixed-sum"><span id="ledgerFixedPaid"></span> / <span id="ledgerFixedTotal"></span></span>
+            </div>
+            <div class="led-bar-track led-fixed-track"><div class="led-bar-fill" id="ledgerFixedBar"></div></div>
+            <p class="led-fixed-left" id="ledgerFixedLeft"></p>
+            <p class="led-fixed-help">이번 달에 빠져나가면 체크하세요. 체크한 것만 지출에 더해져요.</p>
+            <ul class="led-fixed-list" id="ledgerFixedList"></ul>
+            <form class="led-fixed-form" id="ledgerFixedForm">
+              <input type="text" class="led-field" id="ledgerFixedName" maxlength="40" aria-label="고정지출 이름" placeholder="이름 (예: 넷플릭스)">
+              <div class="led-fixed-row">
+                <input type="text" class="led-field" id="ledgerFixedAmount" inputmode="numeric" autocomplete="off" maxlength="17" aria-label="매달 금액" placeholder="매달 금액">
+                <select class="led-field" id="ledgerFixedCat" aria-label="분류"></select>
+              </div>
+              <div class="meal-form-actions">
+                <button type="button" class="btn" id="ledgerFixedCancel" hidden>취소</button>
+                <button type="submit" class="btn primary" id="ledgerFixedSave">추가</button>
+              </div>
+            </form>
+          </section>
+        </div>
       </div>
       <button type="button" class="btn primary led-fab" id="ledgerFab">＋ 내역 적기</button>
     </div>
