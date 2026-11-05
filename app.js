@@ -3092,8 +3092,10 @@
     var pre = ledger.y + '-' + pad2(ledger.m + 1) + '-';
     return (data.ledger || []).filter(function (x) { return x.dayKey.indexOf(pre) === 0; });
   }
+  // 예정이면서 아직 체크 안 한 내역은 합계에 넣지 않는다
+  function ledgerCounted(x) { return !x.planned || x.done; }
   function ledgerSum(list, type) {
-    return list.reduce(function (s, x) { return x.type === type ? s + x.amount : s; }, 0);
+    return list.reduce(function (s, x) { return x.type === type && ledgerCounted(x) ? s + x.amount : s; }, 0);
   }
   function openLedger() {
     var d = new Date();
@@ -3146,6 +3148,14 @@
       list.forEach(function (x) {
         var row = el('article', 'led-entry' + (x.id === ledger.editId ? ' is-editing' : ''));
         var main = el('div', 'led-entry-main');
+        if (x.planned) {
+          row.classList.add('is-planned');
+          if (!x.done) row.classList.add('is-pending');
+          var pc = el('input'); pc.type = 'checkbox'; pc.checked = !!x.done; pc.dataset.done = x.id; pc.className = 'led-done-check';
+          pc.setAttribute('aria-label', (x.memo || x.category) + ' ' + (x.type === 'in' ? '들어옴' : '빠져나감'));
+          main.appendChild(pc);
+          if (!x.done) main.appendChild(el('span', 'led-planned-tag', '예정'));
+        }
         main.appendChild(el('span', 'meal-slot-tag', x.category));
         if (x.memo) main.appendChild(el('span', 'led-memo', x.memo));
         row.appendChild(main);
@@ -3171,7 +3181,7 @@
     [['out', '지출'], ['in', '수입']].forEach(function (t) {
       var totals = {}, sum = 0;
       mon.forEach(function (x) {
-        if (x.type !== t[0]) return;
+        if (x.type !== t[0] || !ledgerCounted(x)) return;
         totals[x.category] = (totals[x.category] || 0) + x.amount;
         sum += x.amount;
       });
@@ -3227,6 +3237,7 @@
     if (dateKey) $('ledgerDate').value = dateKey;
     $('ledgerAmount').value = '';
     $('ledgerMemo').value = '';
+    $('ledgerPlanned').checked = false;
     $('ledgerFormTitle').textContent = '내역 적기';
     $('ledgerFormSave').textContent = '기록하기';
     $('ledgerFormCancel').hidden = true;
@@ -3242,9 +3253,13 @@
     var t = now();
     if (ledger.editId) {
       var x = data.ledger.filter(function (e) { return e.id === ledger.editId; })[0];
-      if (x) { x.dayKey = key; x.type = ledger.type; x.category = ledger.cat; x.amount = amount; x.memo = memo; x.updatedAt = t; }
+      if (x) {
+        var wasPlanned = x.planned;
+        x.dayKey = key; x.type = ledger.type; x.category = ledger.cat; x.amount = amount; x.memo = memo; x.updatedAt = t;
+        x.planned = $('ledgerPlanned').checked; if (!x.planned) x.done = false; else if (!wasPlanned) x.done = false;
+      }
     } else {
-      data.ledger.push({ id: M.uid(), dayKey: key, type: ledger.type, category: ledger.cat, amount: amount, memo: memo, createdAt: t, updatedAt: t });
+      data.ledger.push({ id: M.uid(), dayKey: key, type: ledger.type, category: ledger.cat, amount: amount, memo: memo, planned: $('ledgerPlanned').checked, done: false, createdAt: t, updatedAt: t });
     }
     save();
     toast('가계부에 적었어요.');
@@ -3264,6 +3279,7 @@
     setLedgerType(x.type, x.category);
     $('ledgerAmount').value = x.amount.toLocaleString('ko-KR');
     $('ledgerMemo').value = x.memo;
+    $('ledgerPlanned').checked = !!x.planned;
     $('ledgerFormTitle').textContent = '내역 수정';
     $('ledgerFormSave').textContent = '수정 저장';
     $('ledgerFormCancel').hidden = false;
@@ -3317,6 +3333,16 @@
       this.value = v ? v.toLocaleString('ko-KR') : '';
     });
     $('ledgerForm').addEventListener('submit', function (e) { e.preventDefault(); saveLedger(); });
+    $('ledgerFeed').addEventListener('change', function (e) {
+      var id = e.target.dataset && e.target.dataset.done;
+      if (!id) return;
+      var x = data.ledger.filter(function (r) { return r.id === id; })[0];
+      if (!x) return;
+      x.done = e.target.checked; x.updatedAt = now();
+      save();
+      renderLedger();
+      toast(x.done ? (x.type === 'in' ? '들어온 것으로 체크했어요.' : '빠져나간 것으로 체크했어요.') : '다시 예정으로 돌렸어요.');
+    });
     $('ledgerFeed').addEventListener('click', function (e) {
       var ed = e.target.closest('[data-edit]');
       if (ed) { startLedgerEdit(ed.dataset.edit); return; }
@@ -3494,7 +3520,7 @@
   }
   // 생활비에 들어가는 분류
   var LIVING_CATS = ['식비', '카페·간식', '생활'];
-  function isLivingCost(x) { return x.type === 'out' && LIVING_CATS.indexOf(x.category) >= 0; }
+  function isLivingCost(x) { return x.type === 'out' && ledgerCounted(x) && LIVING_CATS.indexOf(x.category) >= 0; }
   function renderLive() {
     var b = liveBudget();
     var today = new Date();

@@ -134,6 +134,8 @@
       category: str(x.category).trim().slice(0, 20) || '기타',
       amount: amount,
       memo: str(x.memo).trim().slice(0, 200),
+      planned: !!x.planned,
+      done: !!x.done,
       createdAt: created,
       updatedAt: num(x.updatedAt, created) || created
     };
