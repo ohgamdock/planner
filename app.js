@@ -3448,10 +3448,10 @@
   var LIVE_FOLD_KEY = 'planner.v1.liveFolded';
   var livePeriodPick = null; // 입력 칸에서 고른 기간 (저장 전)
   function liveBudget() {
-    if (data.ledgerBudget && data.ledgerBudget.amount > 0) return { amount: data.ledgerBudget.amount, period: data.ledgerBudget.period === 'week' ? 'week' : 'month' };
+    if (data.ledgerBudget && data.ledgerBudget.amount > 0) return { amount: data.ledgerBudget.amount, period: data.ledgerBudget.period === 'week' ? 'week' : 'month', payday: data.ledgerBudget.payday || 0 };
     // 아직 정하지 않았으면 고정지출의 "생활비" 금액을 한 달 예산으로 쓴다
     var f = fixedList().filter(function (x) { return /생활비/.test(x.name); })[0];
-    return { amount: f ? f.amount : 0, period: 'month' };
+    return { amount: f ? f.amount : 0, period: 'month', payday: (data.ledgerBudget && data.ledgerBudget.payday) || 0 };
   }
   // 월요일~일요일
   function weekRange(d) {
@@ -3473,23 +3473,67 @@
     $('ledgerLiveFold').setAttribute('aria-expanded', on ? 'false' : 'true');
     try { localStorage.setItem(LIVE_FOLD_KEY, on ? '1' : '0'); } catch (e) { /* 무시 */ }
   }
+  function daysBetweenDates(a, b) { return Math.round((new Date(b.getFullYear(), b.getMonth(), b.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000); }
+  function fmtMD(d) { return (d.getMonth() + 1) + '/' + d.getDate(); }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+  // 월급 주기: 월급일 ~ 다음 월급일 전날 (월급일이 그 달에 없으면 그 달 마지막 날)
+  function payDate(y, m, pd) { return new Date(y, m, Math.min(pd, new Date(y, m + 1, 0).getDate())); }
+  function payCycle(pd, y, m, today) {
+    var s;
+    if (today) {
+      s = payDate(today.getFullYear(), today.getMonth(), pd);
+      if (today < s) s = payDate(today.getFullYear(), today.getMonth() - 1, pd);
+    } else s = payDate(y, m, pd);
+    var next = payDate(s.getFullYear(), s.getMonth() + 1, pd);
+    var e = addDays(next, -1);
+    var days = daysBetweenDates(s, e) + 1;
+    var rest = days % 7;
+    // 남는 날이 5일 이상이면 한 주로 치고, 그보다 적으면 계산에서 뺀다
+    var weeks = Math.floor(days / 7) + (rest >= 5 ? 1 : 0);
+    return { s: s, e: e, days: days, weeks: weeks, rest: rest >= 5 ? 0 : rest };
+  }
   function renderLive() {
     var b = liveBudget();
     var today = new Date();
     var isThisMonth = ledger.y === today.getFullYear() && ledger.m === today.getMonth();
-    var entries, budget, label, daysLeft = 0;
-    if (b.period === 'week' && isThisMonth) {
-      // 이번 주(월~일)에 쓴 돈 — 달이 바뀌는 주도 그대로 센다
+    var entries, budget, label, daysLeft = 0, weekLine = '';
+    var outIn = function (a, z) { return (data.ledger || []).filter(function (x) { return x.type === 'out' && x.dayKey >= a && x.dayKey <= z; }); };
+    if (b.payday) {
+      // 지금 주기에서 보고 있는 달만큼 앞뒤로 옮긴다 (주기를 건너뛰지 않게)
+      var cNow = payCycle(b.payday, 0, 0, today);
+      var shift = (ledger.y * 12 + ledger.m) - (today.getFullYear() * 12 + today.getMonth());
+      var c = shift ? payCycle(b.payday, cNow.s.getFullYear(), cNow.s.getMonth() + shift) : cNow;
+      entries = outIn(keyOf(c.s), keyOf(c.e));
+      var range = '월급 주기 ' + fmtMD(c.s) + '~' + fmtMD(c.e);
+      if (b.period === 'week') {
+        budget = b.amount * c.weeks;
+        label = range + ' · ' + c.weeks + '주 × ' + won(b.amount) + (c.rest ? ' (남는 ' + c.rest + '일 ' + fmtMD(addDays(c.e, -c.rest + 1)) + '~' + fmtMD(c.e) + '은 빼고 계산)' : '');
+        // 지금 몇 주차인지: 월급일부터 7일씩
+        if (today >= c.s && today <= addDays(c.e, 0)) {
+          var idx = Math.floor(daysBetweenDates(c.s, today) / 7);
+          if (idx < c.weeks) {
+            var ws = addDays(c.s, idx * 7), we = addDays(ws, 6);
+            if (we > c.e) we = c.e;
+            var wSpent = ledgerSum(outIn(keyOf(ws), keyOf(we)), 'out');
+            weekLine = (idx + 1) + '주차 ' + fmtMD(ws) + '~' + fmtMD(we) + ': ' + won(wSpent) + ' / ' + won(b.amount) +
+              (wSpent > b.amount ? ' · ' + won(wSpent - b.amount) + ' 넘음' : ' · ' + won(b.amount - wSpent) + ' 남음');
+          } else weekLine = '지금은 계산에서 뺀 남는 날이에요.';
+        }
+      } else {
+        budget = b.amount;
+        label = range + ' · 한 주기 ' + won(b.amount);
+      }
+      if (today >= c.s && today <= c.e) daysLeft = daysBetweenDates(today, c.e) + 1;
+    } else if (b.period === 'week' && isThisMonth) {
       var w = weekRange(today);
-      entries = (data.ledger || []).filter(function (x) { return x.type === 'out' && x.dayKey >= w.start && x.dayKey <= w.end; });
+      entries = outIn(w.start, w.end);
       budget = b.amount;
-      label = '이번 주 ' + (w.s.getMonth() + 1) + '/' + w.s.getDate() + '~' + (w.e.getMonth() + 1) + '/' + w.e.getDate() + ' · 한 주 ' + won(b.amount);
+      label = '이번 주 ' + fmtMD(w.s) + '~' + fmtMD(w.e) + ' · 한 주 ' + won(b.amount) + ' (월급일을 정하면 월급 주기로 계산해요)';
       daysLeft = 7 - ((today.getDay() + 6) % 7);
     } else {
       entries = ledgerMonth().filter(function (x) { return x.type === 'out'; });
       var dim = new Date(ledger.y, ledger.m + 1, 0).getDate();
       if (b.period === 'week') {
-        // 다른 달을 볼 때는 주 예산을 그 달 날수만큼 늘려서 비교
         budget = Math.round(b.amount * dim / 7);
         label = '이 달 기준 · 한 주 ' + won(b.amount) + ' × ' + (Math.round(dim / 7 * 10) / 10) + '주';
       } else {
@@ -3501,23 +3545,23 @@
     var spent = ledgerSum(entries, 'out');
     $('ledgerLiveSpent').textContent = won(spent);
     $('ledgerLiveBudget').textContent = budget ? won(budget) : '예산 없음';
-    $('ledgerLiveHelp').textContent = budget ? label + ' — 지출 내역에 적은 것만 더해져요.' : '지출 내역에 적은 것만 더해져요.';
+    $('ledgerLiveHelp').textContent = budget ? label : '펼쳐서 생활비와 월급일을 정해 주세요.';
     var over = budget && spent > budget;
     $('ledgerLivePanel').classList.toggle('is-over', !!over);
     $('ledgerLiveBar').style.width = budget ? Math.min(100, Math.round(spent / budget * 100)) + '%' : '0%';
-    $('ledgerLiveLeft').textContent = !budget ? '펼쳐서 생활비를 정해 주세요.' : over ? won(spent - budget) + ' 넘었어요' : '아직 ' + won(budget - spent) + ' 남음';
-    var day = '';
-    if (budget && daysLeft) {
-      day = over ? (b.period === 'week' && isThisMonth ? '이번 주는 예산을 넘었어요.' : '이번 달은 예산을 넘었어요.')
-        : '남은 ' + daysLeft + '일 동안 하루 ' + won(Math.floor((budget - spent) / daysLeft)) + '씩 쓸 수 있어요.';
-    }
-    $('ledgerLiveDay').textContent = day;
-    $('ledgerLiveDay').hidden = !day;
+    $('ledgerLiveLeft').textContent = !budget ? '' : over ? won(spent - budget) + ' 넘었어요' : '아직 ' + won(budget - spent) + ' 남음';
+    var lines = [];
+    if (weekLine) lines.push(weekLine);
+    if (budget && daysLeft) lines.push(over ? '이번 주기는 예산을 넘었어요.' : '남은 ' + daysLeft + '일 동안 하루 ' + won(Math.floor((budget - spent) / daysLeft)) + '씩 쓸 수 있어요.');
+    var dayBox = $('ledgerLiveDay');
+    dayBox.textContent = '';
+    lines.forEach(function (t, i) { if (i) dayBox.appendChild(document.createElement('br')); dayBox.appendChild(document.createTextNode(t)); });
+    dayBox.hidden = !lines.length;
     var totals = {};
     entries.forEach(function (x) { totals[x.category] = (totals[x.category] || 0) + x.amount; });
     var box = $('ledgerLiveCats');
     box.textContent = '';
-    Object.keys(totals).sort(function (a, c) { return totals[c] - totals[a]; }).forEach(function (name) {
+    Object.keys(totals).sort(function (a, z) { return totals[z] - totals[a]; }).forEach(function (name) {
       var row = el('div', 'led-bar-row');
       var line = el('div', 'led-bar-line');
       line.appendChild(el('span', '', name));
@@ -3530,8 +3574,9 @@
       row.appendChild(track);
       box.appendChild(row);
     });
-    if (!entries.length) box.appendChild(el('p', 'led-empty is-small', b.period === 'week' && isThisMonth ? '이번 주 지출 내역이 아직 없어요.' : '이달 지출 내역이 아직 없어요.'));
+    if (!entries.length) box.appendChild(el('p', 'led-empty is-small', '이 기간 지출 내역이 아직 없어요.'));
     if (document.activeElement !== $('ledgerLiveInput') && !livePeriodPick) $('ledgerLiveInput').value = b.amount ? b.amount.toLocaleString('ko-KR') : '';
+    if (document.activeElement !== $('ledgerPayday')) $('ledgerPayday').value = String(b.payday || 0);
     renderLivePeriod();
   }
   function bindLive() {
@@ -3539,6 +3584,9 @@
     try { folded = localStorage.getItem(LIVE_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
     setLiveFolded(folded);
     $('ledgerLiveHead').addEventListener('click', function () { setLiveFolded(!$('ledgerLivePanel').classList.contains('is-folded')); });
+    var pdSel = $('ledgerPayday');
+    var o0 = el('option', '', '정하지 않음 (달력 기준)'); o0.value = '0'; pdSel.appendChild(o0);
+    for (var pi = 1; pi <= 31; pi++) { var op = el('option', '', '매달 ' + pi + '일'); op.value = String(pi); pdSel.appendChild(op); }
     $('ledgerLivePeriod').addEventListener('click', function (e) {
       var btn = e.target.closest('button[data-period]');
       if (!btn) return;
@@ -3558,7 +3606,7 @@
       var v = Number($('ledgerLiveInput').value.replace(/[^0-9]/g, '')) || 0;
       if (v <= 0) { toast('생활비 금액을 적어 주세요.', true); return; }
       var period = livePeriodPick || liveBudget().period;
-      data.ledgerBudget = { amount: v, period: period, updatedAt: now() };
+      data.ledgerBudget = { amount: v, period: period, payday: Number($('ledgerPayday').value) || 0, updatedAt: now() };
       livePeriodPick = null;
       $('ledgerLiveInput').blur();
       save();

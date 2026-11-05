@@ -1854,3 +1854,7 @@ body.desktop .meal-day { padding-top: 48px; }
 
 .led-live-label { font-size: 13px; font-weight: 700; color: var(--muted); }
 .led-live-period { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.led-live-payday { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.led-live-payday select { font-weight: 400; color: var(--text); }
+.led-live-day { line-height: 1.7; }
