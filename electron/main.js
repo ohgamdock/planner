@@ -20,6 +20,17 @@ if (typeof electron === 'string' || !electron.app) {
 const { app, BrowserWindow, Menu, shell, dialog, screen, Tray, Notification, ipcMain, nativeImage } = electron;
 const fs = require('fs');
 
+// 예전 버전이 다른 이름의 폴더에 기록을 남겼을 수 있다. 지금 폴더에 기록이 없으면 그 폴더를 이어서 쓴다.
+// (기록은 폴더 안 "Local Storage"에 있다. 반드시 단일 실행 잠금보다 먼저 정해야 한다.)
+try {
+  const hasRecords = (dir) => fs.existsSync(path.join(dir, 'Local Storage'));
+  if (!hasRecords(app.getPath('userData'))) {
+    const oldNames = ['오센스의 개쩌는 다이어리', '계.. 획.. 비슷한 걸 세워보려고 합니다', '계.. 획..? 비슷한 걸 세워보려고 합니다.', 'my-life-planner'];
+    const found = oldNames.map((n) => path.join(app.getPath('appData'), n)).filter(hasRecords)[0];
+    if (found) app.setPath('userData', found);
+  }
+} catch (e) { /* 못 찾으면 기본 폴더 */ }
+
 // 윈도우 알림 센터에 앱 이름이 제대로 보이도록 (설치판만: 설치할 때 같은 ID의 바로가기가 만들어진다.
 // 개발 실행에서 이 ID를 쓰면 작업 표시줄이 창 아이콘 대신 electron.exe 아이콘을 보여준다.)
 // 개발 실행에서도 같은 ID를 쓰고, 시작 메뉴에 같은 ID를 가진 바로가기를 만들어 둔다(작업 표시줄 아이콘·알림용).
@@ -109,8 +120,49 @@ async function startServer() {
   try {
     return await server.start({ port: PREFERRED_PORT, dataDir });
   } catch (e) {
+    // 기록(브라우저 저장소)은 http://127.0.0.1:4310 주소에 묶여 있다. 다른 포트로 열면 기록이 없는 것처럼 보이므로 먼저 알린다.
+    let otherPlanner = false;
+    try {
+      const r = await fetch('http://127.0.0.1:' + PREFERRED_PORT + '/api/health');
+      otherPlanner = r.ok && !!(await r.json()).ok;
+    } catch (err) { /* 플래너가 아닌 다른 프로그램 */ }
+    if (otherPlanner) {
+      dialog.showMessageBoxSync({
+        type: 'warning', title: '플래너가 이미 켜져 있어요',
+        message: '이전에 켜 둔 플래너가 아직 실행 중이에요.',
+        detail: '화면 오른쪽 아래 트레이(^)의 플래너 아이콘을 오른쪽 클릭 → "종료"를 누른 뒤 다시 실행해 주세요.\n기록은 그대로 남아 있어요.',
+        buttons: ['확인']
+      });
+      app.quit();
+      return null;
+    }
+    const pick = dialog.showMessageBoxSync({
+      type: 'warning', title: '포트를 쓸 수 없어요',
+      message: '다른 프로그램이 ' + PREFERRED_PORT + '번 포트를 쓰고 있어요.',
+      detail: '이대로 열면 지금까지의 기록이 안 보일 수 있어요(지워지지는 않아요).\n컴퓨터를 다시 켠 뒤 실행하는 것을 권해요.',
+      buttons: ['닫기', '그래도 열기'], defaultId: 0, cancelId: 0
+    });
+    if (pick !== 1) { app.quit(); return null; }
     return server.start({ port: 0, dataDir });
   }
+}
+
+// 하루 한 번 화면 기록을 파일로 남긴다 (업데이트·사고 대비). userData/backups 에 최근 14개.
+function autoBackup() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.executeJavaScript("localStorage.getItem('planner.v1.data')").then((raw) => {
+    if (!raw || raw.length < 50) return;
+    const dir = path.join(app.getPath('userData'), 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const d = new Date();
+    const name = 'planner-' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + '.json';
+    const file = path.join(dir, name);
+    // 같은 날 이미 있으면, 새 기록이 크게 줄어든 경우(사고 가능성)에는 덮어쓰지 않는다
+    try { const old = fs.statSync(file).size; if (raw.length < old * 0.5) return; } catch (e) { /* 없음 */ }
+    fs.writeFileSync(file, raw);
+    const files = fs.readdirSync(dir).filter((f) => /^planner-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
+    files.slice(0, Math.max(0, files.length - 14)).forEach((f) => { try { fs.unlinkSync(path.join(dir, f)); } catch (e) { /* 무시 */ } });
+  }).catch(() => { /* 무시 */ });
 }
 
 // 창·작업 표시줄 아이콘: 화면(app.js)과 같은 순서로 다섯 장을 하루에 한 장씩
@@ -226,6 +278,8 @@ function createWindow() {
   let clean = false;
   try { clean = !!require('../package.json').clean; } catch (e) { /* 무시 */ }
   mainWindow.loadURL(`http://127.0.0.1:${serverInfo.port}/` + (clean ? '?clean=1' : ''));
+  mainWindow.webContents.on('did-finish-load', () => { setTimeout(autoBackup, 8000); });
+  setInterval(autoBackup, 6 * 60 * 60 * 1000);
 
   // 외부 링크는 기본 브라우저로
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -296,6 +350,7 @@ function buildMenu() {
 app.whenReady().then(async () => {
   try {
     serverInfo = await startServer();
+    if (!serverInfo) return;
   } catch (e) {
     dialog.showErrorBox('플래너를 시작할 수 없어요', e.message);
     app.quit();
