@@ -3492,12 +3492,15 @@
     var weeks = Math.floor(days / 7) + (rest >= 5 ? 1 : 0);
     return { s: s, e: e, days: days, weeks: weeks, rest: rest >= 5 ? 0 : rest };
   }
+  // 생활비에 들어가는 분류
+  var LIVING_CATS = ['식비', '카페·간식', '생활'];
+  function isLivingCost(x) { return x.type === 'out' && LIVING_CATS.indexOf(x.category) >= 0; }
   function renderLive() {
     var b = liveBudget();
     var today = new Date();
     var isThisMonth = ledger.y === today.getFullYear() && ledger.m === today.getMonth();
     var entries, budget, label, daysLeft = 0, weekLine = '', period = null;
-    var outIn = function (a, z) { return (data.ledger || []).filter(function (x) { return x.type === 'out' && x.dayKey >= a && x.dayKey <= z; }); };
+    var outIn = function (a, z) { return (data.ledger || []).filter(function (x) { return isLivingCost(x) && x.dayKey >= a && x.dayKey <= z; }); };
     if (b.payday) {
       // 지금 주기에서 보고 있는 달만큼 앞뒤로 옮긴다 (주기를 건너뛰지 않게)
       var cNow = payCycle(b.payday, 0, 0, today);
@@ -3533,7 +3536,7 @@
       label = '이번 주 ' + fmtMD(w.s) + '~' + fmtMD(w.e) + ' · 한 주 ' + won(b.amount) + ' (월급일을 정하면 월급 주기로 계산해요)';
       daysLeft = 7 - ((today.getDay() + 6) % 7);
     } else {
-      entries = ledgerMonth().filter(function (x) { return x.type === 'out'; });
+      entries = ledgerMonth().filter(isLivingCost);
       var dim = new Date(ledger.y, ledger.m + 1, 0).getDate();
       period = { s: new Date(ledger.y, ledger.m, 1), e: new Date(ledger.y, ledger.m, dim), weeks: Math.floor(dim / 7) + (dim % 7 >= 5 ? 1 : 0), wb: b.period === 'week' ? b.amount : 0 };
       if (b.period === 'week') {
