@@ -1851,3 +1851,6 @@ body.desktop .meal-day { padding-top: 48px; }
 @media (max-width: 760px) {
   .led-live { padding: 12px; }
 }
+
+.led-live-label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.led-live-period { grid-template-columns: repeat(2, minmax(0, 1fr)); }

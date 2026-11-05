@@ -392,7 +392,7 @@
     d.ledgerFixed = normList(raw.ledgerFixed, normFixed);
     if (isObj(raw.ledgerBudget)) {
       var ba = Math.floor(Number(raw.ledgerBudget.amount));
-      if (ba >= 0 && ba <= 1e13) d.ledgerBudget = { amount: ba, updatedAt: num(raw.ledgerBudget.updatedAt, 0) || 0 };
+      if (ba >= 0 && ba <= 1e13) d.ledgerBudget = { amount: ba, period: raw.ledgerBudget.period === 'week' ? 'week' : 'month', updatedAt: num(raw.ledgerBudget.updatedAt, 0) || 0 };
     }
     if (isObj(raw.deleted)) {
       Object.keys(raw.deleted).forEach(function (id) {

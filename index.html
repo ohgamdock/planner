@@ -680,14 +680,18 @@
             </div>
             <div class="led-bar-track led-fixed-track"><div class="led-bar-fill" id="ledgerLiveBar"></div></div>
             <p class="led-fixed-left" id="ledgerLiveLeft"></p>
-            <p class="led-fixed-help">한 달 생활비 안에서 쓴 돈이에요. 지출 내역에 적은 것만 더해져요.</p>
+            <p class="led-fixed-help" id="ledgerLiveHelp"></p>
             <div class="led-live-body" id="ledgerLiveBody">
               <p class="led-live-day" id="ledgerLiveDay"></p>
               <div class="led-live-cats" id="ledgerLiveCats"></div>
               <form class="led-live-form" id="ledgerLiveForm">
-                <label for="ledgerLiveInput">한 달 생활비</label>
+                <span class="led-live-label">생활비 정하기</span>
+                <div class="meal-slots led-live-period" id="ledgerLivePeriod" role="group" aria-label="기간">
+                  <button type="button" data-period="month">한 달에</button>
+                  <button type="button" data-period="week">한 주에</button>
+                </div>
                 <div class="led-live-row">
-                  <input type="text" class="led-field" id="ledgerLiveInput" inputmode="numeric" autocomplete="off" maxlength="17" placeholder="예: 800,000">
+                  <input type="text" class="led-field" id="ledgerLiveInput" aria-label="생활비 금액" inputmode="numeric" autocomplete="off" maxlength="17" placeholder="예: 800,000">
                   <button type="submit" class="btn primary">저장</button>
                 </div>
               </form>

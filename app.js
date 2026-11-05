@@ -3446,11 +3446,27 @@
   }
   // ---- 생활비: 한 달 예산 안에서 일반 지출(지출 내역)을 얼마나 썼는지
   var LIVE_FOLD_KEY = 'planner.v1.liveFolded';
+  var livePeriodPick = null; // 입력 칸에서 고른 기간 (저장 전)
   function liveBudget() {
-    if (data.ledgerBudget && data.ledgerBudget.amount > 0) return data.ledgerBudget.amount;
-    // 아직 정하지 않았으면 고정지출의 "생활비" 금액을 쓴다
+    if (data.ledgerBudget && data.ledgerBudget.amount > 0) return { amount: data.ledgerBudget.amount, period: data.ledgerBudget.period === 'week' ? 'week' : 'month' };
+    // 아직 정하지 않았으면 고정지출의 "생활비" 금액을 한 달 예산으로 쓴다
     var f = fixedList().filter(function (x) { return /생활비/.test(x.name); })[0];
-    return f ? f.amount : 0;
+    return { amount: f ? f.amount : 0, period: 'month' };
+  }
+  // 월요일~일요일
+  function weekRange(d) {
+    var start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+    var end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+    return { start: keyOf(start), end: keyOf(end), s: start, e: end };
+  }
+  function renderLivePeriod() {
+    var p = livePeriodPick || liveBudget().period;
+    Array.prototype.forEach.call(document.querySelectorAll('#ledgerLivePeriod button'), function (b) {
+      var on = b.dataset.period === p;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    $('ledgerLiveInput').placeholder = p === 'week' ? '예: 200,000' : '예: 800,000';
   }
   function setLiveFolded(on) {
     $('ledgerLivePanel').classList.toggle('is-folded', on);
@@ -3458,28 +3474,50 @@
     try { localStorage.setItem(LIVE_FOLD_KEY, on ? '1' : '0'); } catch (e) { /* 무시 */ }
   }
   function renderLive() {
-    var mon = ledgerMonth().filter(function (x) { return x.type === 'out'; });
-    var spent = ledgerSum(mon, 'out');
-    var budget = liveBudget();
+    var b = liveBudget();
+    var today = new Date();
+    var isThisMonth = ledger.y === today.getFullYear() && ledger.m === today.getMonth();
+    var entries, budget, label, daysLeft = 0;
+    if (b.period === 'week' && isThisMonth) {
+      // 이번 주(월~일)에 쓴 돈 — 달이 바뀌는 주도 그대로 센다
+      var w = weekRange(today);
+      entries = (data.ledger || []).filter(function (x) { return x.type === 'out' && x.dayKey >= w.start && x.dayKey <= w.end; });
+      budget = b.amount;
+      label = '이번 주 ' + (w.s.getMonth() + 1) + '/' + w.s.getDate() + '~' + (w.e.getMonth() + 1) + '/' + w.e.getDate() + ' · 한 주 ' + won(b.amount);
+      daysLeft = 7 - ((today.getDay() + 6) % 7);
+    } else {
+      entries = ledgerMonth().filter(function (x) { return x.type === 'out'; });
+      var dim = new Date(ledger.y, ledger.m + 1, 0).getDate();
+      if (b.period === 'week') {
+        // 다른 달을 볼 때는 주 예산을 그 달 날수만큼 늘려서 비교
+        budget = Math.round(b.amount * dim / 7);
+        label = '이 달 기준 · 한 주 ' + won(b.amount) + ' × ' + (Math.round(dim / 7 * 10) / 10) + '주';
+      } else {
+        budget = b.amount;
+        label = '이 달 · 한 달 ' + won(b.amount);
+      }
+      if (isThisMonth) daysLeft = dim - today.getDate() + 1;
+    }
+    var spent = ledgerSum(entries, 'out');
     $('ledgerLiveSpent').textContent = won(spent);
     $('ledgerLiveBudget').textContent = budget ? won(budget) : '예산 없음';
+    $('ledgerLiveHelp').textContent = budget ? label + ' — 지출 내역에 적은 것만 더해져요.' : '지출 내역에 적은 것만 더해져요.';
     var over = budget && spent > budget;
     $('ledgerLivePanel').classList.toggle('is-over', !!over);
     $('ledgerLiveBar').style.width = budget ? Math.min(100, Math.round(spent / budget * 100)) + '%' : '0%';
-    $('ledgerLiveLeft').textContent = !budget ? '아래에서 한 달 생활비를 정해 주세요.' : over ? won(spent - budget) + ' 넘었어요' : '아직 ' + won(budget - spent) + ' 남음';
-    // 이번 달이면 남은 날로 나눈 하루 쓸 수 있는 돈
-    var d = new Date(), day = '';
-    if (budget && ledger.y === d.getFullYear() && ledger.m === d.getMonth()) {
-      var daysLeft = new Date(ledger.y, ledger.m + 1, 0).getDate() - d.getDate() + 1;
-      day = over ? '이번 달은 예산을 넘었어요.' : '남은 ' + daysLeft + '일 동안 하루 ' + won(Math.floor((budget - spent) / daysLeft)) + '씩 쓸 수 있어요.';
+    $('ledgerLiveLeft').textContent = !budget ? '펼쳐서 생활비를 정해 주세요.' : over ? won(spent - budget) + ' 넘었어요' : '아직 ' + won(budget - spent) + ' 남음';
+    var day = '';
+    if (budget && daysLeft) {
+      day = over ? (b.period === 'week' && isThisMonth ? '이번 주는 예산을 넘었어요.' : '이번 달은 예산을 넘었어요.')
+        : '남은 ' + daysLeft + '일 동안 하루 ' + won(Math.floor((budget - spent) / daysLeft)) + '씩 쓸 수 있어요.';
     }
     $('ledgerLiveDay').textContent = day;
     $('ledgerLiveDay').hidden = !day;
     var totals = {};
-    mon.forEach(function (x) { totals[x.category] = (totals[x.category] || 0) + x.amount; });
+    entries.forEach(function (x) { totals[x.category] = (totals[x.category] || 0) + x.amount; });
     var box = $('ledgerLiveCats');
     box.textContent = '';
-    Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; }).forEach(function (name) {
+    Object.keys(totals).sort(function (a, c) { return totals[c] - totals[a]; }).forEach(function (name) {
       var row = el('div', 'led-bar-row');
       var line = el('div', 'led-bar-line');
       line.appendChild(el('span', '', name));
@@ -3492,14 +3530,25 @@
       row.appendChild(track);
       box.appendChild(row);
     });
-    if (!mon.length) box.appendChild(el('p', 'led-empty is-small', '이달 지출 내역이 아직 없어요.'));
-    if (document.activeElement !== $('ledgerLiveInput')) $('ledgerLiveInput').value = budget ? budget.toLocaleString('ko-KR') : '';
+    if (!entries.length) box.appendChild(el('p', 'led-empty is-small', b.period === 'week' && isThisMonth ? '이번 주 지출 내역이 아직 없어요.' : '이달 지출 내역이 아직 없어요.'));
+    if (document.activeElement !== $('ledgerLiveInput') && !livePeriodPick) $('ledgerLiveInput').value = b.amount ? b.amount.toLocaleString('ko-KR') : '';
+    renderLivePeriod();
   }
   function bindLive() {
     var folded = false;
     try { folded = localStorage.getItem(LIVE_FOLD_KEY) === '1'; } catch (e) { /* 무시 */ }
     setLiveFolded(folded);
     $('ledgerLiveHead').addEventListener('click', function () { setLiveFolded(!$('ledgerLivePanel').classList.contains('is-folded')); });
+    $('ledgerLivePeriod').addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-period]');
+      if (!btn) return;
+      livePeriodPick = btn.dataset.period;
+      // 기간을 바꾸면 금액도 그 기간에 맞게 바꿔 다시 적게 한다
+      var cur = liveBudget();
+      $('ledgerLiveInput').value = livePeriodPick === cur.period && cur.amount ? cur.amount.toLocaleString('ko-KR') : '';
+      renderLivePeriod();
+      $('ledgerLiveInput').focus();
+    });
     $('ledgerLiveInput').addEventListener('input', function () {
       var v = Number(this.value.replace(/[^0-9]/g, '')) || 0;
       this.value = v ? v.toLocaleString('ko-KR') : '';
@@ -3508,11 +3557,13 @@
       e.preventDefault();
       var v = Number($('ledgerLiveInput').value.replace(/[^0-9]/g, '')) || 0;
       if (v <= 0) { toast('생활비 금액을 적어 주세요.', true); return; }
-      data.ledgerBudget = { amount: v, updatedAt: now() };
+      var period = livePeriodPick || liveBudget().period;
+      data.ledgerBudget = { amount: v, period: period, updatedAt: now() };
+      livePeriodPick = null;
       $('ledgerLiveInput').blur();
       save();
       renderLedger();
-      toast('한 달 생활비를 ' + won(v) + '으로 정했어요.');
+      toast((period === 'week' ? '한 주' : '한 달') + ' 생활비를 ' + won(v) + '으로 정했어요.');
     });
   }
 
