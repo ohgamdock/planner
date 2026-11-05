@@ -447,7 +447,13 @@
     var order = [];
     function take(item) {
       if (deleted[item.id]) return;
-      if (byId[item.id]) byId[item.id] = newer(byId[item.id], item);
+      if (byId[item.id]) {
+        var prev = byId[item.id], win = newer(prev, item);
+        // '진행 기록에 남김(logged)'은 한 번 붙으면 계속 유지되는 표시: 한쪽에만 있어도 남긴다
+        // (수정 시각을 바꾸지 않고 붙기 때문에, 이렇게 안 하면 기기와 서버가 서로 다르다며 끝없이 다시 보낸다)
+        if ((prev.logged || item.logged) && !win.logged) { var cp = {}; for (var k in win) cp[k] = win[k]; cp.logged = true; win = cp; }
+        byId[item.id] = win;
+      }
       else { byId[item.id] = item; order.push(item.id); }
     }
     a.forEach(take);
@@ -475,6 +481,7 @@
     var merged = {};
     for (var k in keep) merged[k] = keep[k];
     merged.done = !!(x.done || y.done);
+    if (x.logged || y.logged) merged.logged = true;
     merged.updatedAt = Math.max(x.updatedAt || 0, y.updatedAt || 0);
     if (!other.seed) delete merged.seed;
     return merged;
