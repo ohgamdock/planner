@@ -1888,3 +1888,8 @@ body.desktop .meal-day { padding-top: 48px; }
 .led-planned-tag { padding: 2px 8px; border-radius: 999px; border: 1px dashed var(--muted); color: var(--muted); font-size: 12px; font-weight: 700; }
 .led-entry.is-pending .led-amount { color: var(--muted); }
 .led-entry.is-pending .led-memo { color: var(--muted); }
+
+/* 데스크톱: 카드 윗테두리가 상단바(58px)에 가려지지 않게 여백을 둔다 */
+body.desktop .app { padding-top: 74px; }
+/* 어두운 테마: 상단 앱 이름이 바탕에 묻히지 않게 */
+html[data-theme="dark"] .greet { color: var(--text); }
