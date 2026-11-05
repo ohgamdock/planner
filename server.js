@@ -74,6 +74,7 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Expose-Headers': 'X-Planner-Build',
   'Access-Control-Max-Age': '86400'
 };
 
@@ -117,7 +118,8 @@ function sendJson(res, status, body) {
   res.writeHead(status, Object.assign({
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    'Content-Length': Buffer.byteLength(text)
+    'Content-Length': Buffer.byteLength(text),
+    'X-Planner-Build': BUILD_STAMP
   }, CORS));
   res.end(text);
 }
@@ -228,6 +230,9 @@ async function handleApi(req, res, url) {
   if (req.method === 'GET') {
     const data = loadData(key);
     if (!data) return sendJson(res, 404, { error: '데이터 없음' });
+    // ?since=마지막으로 받은 시각 — 그 뒤로 바뀐 게 없으면 내용 없이 204만 보낸다 (전송량 절약)
+    const since = Number(url.searchParams.get('since'));
+    if (since && data.updatedAt === since) { res.writeHead(204, Object.assign({ 'Cache-Control': 'no-store' }, CORS)); return res.end(); }
     return sendJson(res, 200, data);
   }
 
@@ -240,14 +245,20 @@ async function handleApi(req, res, url) {
     } catch (e) {
       return sendJson(res, 400, { error: '본문을 읽을 수 없음' });
     }
+    let current0 = null;
     const merged = await withLock(key, () => {
       const current = loadData(key) || merge.emptyData();
+      current0 = current;
       const result = merge.mergeData(current, incoming);
       result.updatedAt = Math.max(result.updatedAt, Date.now());
       saveData(key, result);
       return result;
     });
     broadcast(key, { updatedAt: merged.updatedAt });
+    // 저장 기록 (어느 기기가 보냈는지 진단용): 시각, 기기 종류, 내용 변화 여부
+    if (merge.sameContent(merged, current0)) console.log('[PUT 변화 없음]', new Date().toISOString(), key.slice(0, 4), (req.headers['user-agent'] || '').slice(0, 90));
+    // ?lite=1 — 보낸 기록과 합친 결과가 같으면 시각만 돌려준다 (다르면 전체를 보내 기기가 맞춘다)
+    if (url.searchParams.get('lite') === '1' && merge.sameContent(merged, incoming)) return sendJson(res, 200, { same: true, updatedAt: merged.updatedAt });
     return sendJson(res, 200, merged);
   }
 

@@ -32,7 +32,8 @@
   // 휴대폰처럼 서버에서 직접 연 페이지는 자기 주소를 쓴다. 기기 연결 패널에서 바꿀 수 있다.
   var CLOUD_URL = 'https://planner.34-50-58-33.sslip.io';
   var DOUBLE_TAP_MS = 600;
-  var POLL_MS = 15000;
+  // 실시간 알림이 바뀐 순간을 알려 주므로, 확인은 1분에 한 번 "바뀐 게 있나"만 묻는다 (안 바뀌면 거의 0바이트)
+  var POLL_MS = 60000;
   var PUSH_DELAY_MS = 500;
   var MAX_NOTES_SHOWN = 6;
 
@@ -149,7 +150,7 @@
   var editingEventId = null;
   var lastCalendarTap = { date: '', time: 0 };
 
-  var sync = { dirty: false, pushing: false, serverOk: null, pushTimer: null, pollTimer: null };
+  var sync = { dirty: false, pushing: false, serverOk: null, pushTimer: null, pollTimer: null, remoteAt: 0 };
 
   function loadLocal() {
     var d = null;
@@ -216,6 +217,7 @@
 
   // 데이터가 바뀐 뒤 항상 호출: 로컬 저장 → 서버 전송 예약
   function save() {
+    sync.echo = 0;
     data.updatedAt = now();
     persistLocal();
     schedulePush();
@@ -383,15 +385,26 @@
     return true;
   }
 
+  // 웹 화면이 서버보다 옛 코드면(새로고침 안 한 탭) 새로고침한다. 옛 코드는 새 항목을 몰라 끝없이 다시 보내는 문제가 있었다.
+  var MY_BUILD = (function () { var sc = document.querySelector('script[src*="app.js?v="]'); var m = sc && /[?&]v=([^&]+)/.exec(sc.getAttribute('src')); return m ? m[1] : ''; })();
+  function checkBuild(r) {
+    if (window.plannerDesktop || !MY_BUILD || MY_BUILD === '__V__') return; // 데스크톱 앱은 자기 파일을 쓴다
+    var b = r && r.headers && r.headers.get('X-Planner-Build');
+    if (!b || b === MY_BUILD) return;
+    var last = 0;
+    try { last = Number(sessionStorage.getItem('planner.v1.reloadAt')) || 0; sessionStorage.setItem('planner.v1.reloadAt', String(Date.now())); } catch (e) { /* 무시 */ }
+    if (Date.now() - last > 60000) location.reload();
+  }
   function push() {
     if (!syncKey || sync.pushing) return;
     sync.pushing = true;
     sync.dirty = false;
     renderStatus();
     var snapshot = JSON.stringify(data);
-    fetch(apiUrl('data/' + encodeURIComponent(syncKey)), {
+    fetch(apiUrl('data/' + encodeURIComponent(syncKey) + '?lite=1'), {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: snapshot
     }).then(function (r) {
+      checkBuild(r);
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     }).then(function (remote) {
@@ -399,8 +412,20 @@
       sync.pushing = false;
       // 전송 중에 또 바뀌었으면 병합 결과가 로컬과 다를 수 있으므로 다시 보낸다
       var changedLocally = JSON.stringify(data) !== snapshot;
+      if (remote && remote.same) {
+        // 서버도 같은 내용: 시각만 맞춘다
+        sync.remoteAt = remote.updatedAt;
+        if (changedLocally) schedulePush();
+        renderStatus();
+        return;
+      }
+      sync.remoteAt = remote.updatedAt || 0;
       applyRemote(remote);
-      if (changedLocally || !M.sameContent(data, remote)) schedulePush();
+      if (changedLocally) { sync.echo = 0; schedulePush(); }
+      else if (!M.sameContent(data, remote)) {
+        sync.echo = (sync.echo || 0) + 1;
+        if (sync.echo <= 3) schedulePush(); // 그 이상은 무한 반복이므로 멈춘다 (다음에 직접 바꾸면 다시 보냄)
+      } else sync.echo = 0;
       renderStatus();
     }).catch(function () {
       sync.serverOk = false;
@@ -413,15 +438,19 @@
   function poll() {
     if (!syncKey) return;
     flushPhotoQueue();
-    if (sync.dirty && !sync.pushing) { push(); return; }
-    fetch(apiUrl('data/' + encodeURIComponent(syncKey)), { cache: 'no-store' })
+    if (sync.pushing) return; // 보내는 중이면 그 응답이 서버 상태를 알려 준다 (내가 보낸 걸 다시 받지 않게)
+    if (sync.dirty) { push(); return; }
+    fetch(apiUrl('data/' + encodeURIComponent(syncKey) + (sync.remoteAt ? '?since=' + sync.remoteAt : '')), { cache: 'no-store' })
       .then(function (r) {
+        checkBuild(r);
+        if (r.status === 204) return null; // 바뀐 게 없음
         if (r.status === 404) { schedulePush(); return null; }
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
       }).then(function (remote) {
         sync.serverOk = true;
         if (remote) {
+          sync.remoteAt = remote.updatedAt || 0;
           applyRemote(remote);
           if (!M.sameContent(data, remote)) schedulePush();
         }
