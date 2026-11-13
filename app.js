@@ -606,7 +606,7 @@
     var grid = $('calendarGrid');
     $('monthTitle').textContent = viewYear + '년 ' + (viewMonth + 1) + '월';
     var first = new Date(viewYear, viewMonth, 1);
-    var offset = (first.getDay() + 6) % 7; // 월요일 시작
+    var offset = first.getDay(); // 일요일 시작
     var start = new Date(viewYear, viewMonth, 1 - offset);
     var tKey = todayKey();
     var frag = document.createDocumentFragment();
@@ -947,6 +947,11 @@
       lk.title = '프로젝트에 넣기'; lk.setAttribute('aria-label', '‘' + t.text + '’ 프로젝트에 넣기');
       li.appendChild(lk);
     }
+    if (!t.routineId && !t.done) {
+      var pp = el('button', 'btn link', '내일로'); pp.type = 'button'; pp.dataset.action = 'postpone';
+      pp.setAttribute('aria-label', '‘' + t.text + '’ 다음 날로 미루기');
+      li.appendChild(pp);
+    }
     var ed = el('button', 'btn link', '수정'); ed.type = 'button'; ed.dataset.action = 'edit';
     ed.setAttribute('aria-label', '‘' + t.text + '’ 수정');
     li.appendChild(ed);
@@ -1019,6 +1024,31 @@
     }
     save();
     renderTasks();
+  }
+
+  // 안 끝난 할 일을 다음 날로 옮긴다. 기기 간 병합에서 되살아나지 않도록 새 id로 옮기고 옛 id는 툼스톤 처리한다.
+  function postponeTasks(ids) {
+    var fromKey = selectedKey;
+    var toKey = shiftDay(fromKey, 1);
+    var tasks = tasksOf(fromKey);
+    var moving = tasks.filter(function (t) { return !t.routineId && !t.done && (!ids || ids.indexOf(t.id) >= 0); });
+    if (!moving.length) { toast('미룰 할 일이 없어요.'); return; }
+    if (!data.days[toKey]) data.days[toKey] = { tasks: [] };
+    var t = now();
+    moving.forEach(function (task, i) {
+      var nid = M.uid();
+      data.days[toKey].tasks.push({ id: nid, text: task.text, done: false, projectId: task.projectId, createdAt: t + i, updatedAt: t + i });
+      if (task.projectId) {
+        var pf = findProject(task.projectId);
+        if (pf) { pf.p.tasks.forEach(function (x) { if (x.id === task.id) { x.id = nid; x.dayKey = toKey; x.updatedAt = t; } }); touchProject(pf.p); }
+      }
+      tombstone(task.id);
+    });
+    var rest = tasks.filter(function (x) { return moving.indexOf(x) < 0; });
+    if (rest.length) data.days[fromKey].tasks = rest; else delete data.days[fromKey];
+    save();
+    renderAll();
+    toast(moving.length === 1 ? '‘' + moving[0].text + '’ 을(를) ' + fmtMonthDay(toKey) + '로 미뤘어요.' : moving.length + '개 할 일을 ' + fmtMonthDay(toKey) + '로 미뤘어요.');
   }
 
   function renderNotes() {
@@ -1899,7 +1929,7 @@
     var grid = $('pdCheckGrid');
     grid.innerHTML = '';
     var first = new Date(checkMonth.y, checkMonth.m, 1);
-    var lead = (first.getDay() + 6) % 7; // 월요일 시작
+    var lead = first.getDay(); // 일요일 시작
     var daysInMonth = new Date(checkMonth.y, checkMonth.m + 1, 0).getDate();
     var tKey = todayKey();
     for (var i = 0; i < lead; i++) grid.appendChild(el('span', 'ck-cell is-out'));
@@ -4529,7 +4559,13 @@
         var li = btn.closest('.task-item');
         if (btn.dataset.action === 'delete') deleteTask(li.dataset.id);
         else if (btn.dataset.action === 'edit') editTask(li, li.dataset.id);
+        else if (btn.dataset.action === 'postpone') postponeTasks([li.dataset.id]);
       });
+    });
+    $('postponeTasksBtn').addEventListener('click', function () {
+      var left = tasksOf(selectedKey).filter(function (t) { return !t.routineId && !t.done; }).length;
+      if (!left) { toast('미룰 할 일이 없어요.'); return; }
+      if (confirm('안 끝난 할 일 ' + left + '개를 ' + fmtMonthDay(shiftDay(selectedKey, 1)) + '로 미룰까요?')) postponeTasks(null);
     });
 
     // 백업

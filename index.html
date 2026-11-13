@@ -153,7 +153,7 @@
               </div>
             </div>
             <div class="weekdays" aria-hidden="true">
-              <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span>
+              <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
             </div>
             <div class="cal-grid" id="calendarGrid"></div>
           </div>
@@ -196,6 +196,7 @@
             <div class="card-head">
               <h2>하루 계획</h2>
               <span class="muted small" id="taskCount">0 / 0 완료</span>
+              <button type="button" class="btn link small" id="postponeTasksBtn" title="안 끝난 할 일을 다음 날로 옮겨요">내일로 미루기 ➡</button>
             </div>
             <div class="progress" aria-hidden="true"><div class="progress-bar" id="taskProgress"></div></div>
             <ul class="task-list" id="taskList"></ul>
@@ -328,7 +329,7 @@
                       <button type="button" class="btn ghost small" id="pdCheckToday">이번 달</button>
                     </div>
                     <div class="ck-weekdays" aria-hidden="true">
-                      <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span>
+                      <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
                     </div>
                     <div class="ck-grid" id="pdCheckGrid" role="group" aria-label="날짜별 체크 달력"></div>
                     <p class="muted small">날짜를 누르면 체크·해제돼요. 이 프로젝트에 연결된 루틴을 완료하면 그날이 자동으로 체크됩니다.</p>
