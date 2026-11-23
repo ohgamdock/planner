@@ -452,7 +452,9 @@
         if (remote) {
           sync.remoteAt = remote.updatedAt || 0;
           applyRemote(remote);
-          if (!M.sameContent(data, remote)) schedulePush();
+          // 받아 온 뒤에도 서버와 다르면 다시 보내되, 내가 안 바꿨는데 계속 어긋나면 3번에서 멈춘다
+          if (!M.sameContent(data, remote)) { sync.echo = (sync.echo || 0) + 1; if (sync.echo <= 3) schedulePush(); }
+          else sync.echo = 0;
         }
         renderStatus();
       }).catch(function () {

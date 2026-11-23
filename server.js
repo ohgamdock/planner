@@ -245,18 +245,32 @@ async function handleApi(req, res, url) {
     } catch (e) {
       return sendJson(res, 400, { error: '본문을 읽을 수 없음' });
     }
-    let current0 = null;
+    let unchanged = false;
     const merged = await withLock(key, () => {
-      const current = loadData(key) || merge.emptyData();
-      current0 = current;
+      const stored = loadData(key);
+      const current = stored || merge.emptyData();
       const result = merge.mergeData(current, incoming);
+      // 합쳐도 서버 내용이 그대로면: 시각을 바꾸지도, 저장하지도, 다른 기기에 알리지도 않는다
+      // (한 기기가 헛저장을 반복해도 다른 기기들이 덩달아 받아 가며 깜빡이지 않게)
+      if (stored && merge.sameContent(result, current)) { unchanged = true; return current; }
       result.updatedAt = Math.max(result.updatedAt, Date.now());
       saveData(key, result);
       return result;
     });
-    broadcast(key, { updatedAt: merged.updatedAt });
-    // 저장 기록 (어느 기기가 보냈는지 진단용): 시각, 기기 종류, 내용 변화 여부
-    if (merge.sameContent(merged, current0)) console.log('[PUT 변화 없음]', new Date().toISOString(), key.slice(0, 4), (req.headers['user-agent'] || '').slice(0, 90));
+    if (!unchanged) broadcast(key, { updatedAt: merged.updatedAt });
+    else {
+      // 진단용: 바뀐 것 없이 저장을 보낸 기기 (앱 이름/버전, 대략적인 주소)
+      const ua = String(req.headers['user-agent'] || '');
+      const app = ua.split('Gecko) ')[1] || ua;
+      const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+      // 보낸 기록이 서버와 어디가 다른지(분야 이름만) — 같으면 '없음'
+      let diff = [];
+      try {
+        const a = merge.normalize(incoming), b = merge.normalize(merged);
+        diff = Object.keys(b).filter((k) => k !== 'updatedAt' && JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+      } catch (e) { diff = ['?']; }
+      console.log('[PUT 변화 없음]', new Date().toISOString(), key.slice(0, 4), app.slice(0, 120), 'lite=' + (url.searchParams.get('lite') || '0'), 'ip=' + ip.split('.').slice(0, 3).join('.') + '.x', 'diff=' + (diff.join(',') || '없음'));
+    }
     // ?lite=1 — 보낸 기록과 합친 결과가 같으면 시각만 돌려준다 (다르면 전체를 보내 기기가 맞춘다)
     if (url.searchParams.get('lite') === '1' && merge.sameContent(merged, incoming)) return sendJson(res, 200, { same: true, updatedAt: merged.updatedAt });
     return sendJson(res, 200, merged);
