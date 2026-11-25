@@ -3901,7 +3901,7 @@
       go.hidden = true; later.hidden = true; track.hidden = false;
       $('updateFill').style.width = (m.percent || 0) + '%';
     } else if (m.phase === 'installing') {
-      $('updateText').textContent = '설치 창을 여는 중이에요. 설치가 끝나면 새 버전으로 다시 열려요.';
+      $('updateText').textContent = '설치 중이에요. 앱이 잠깐 꺼졌다가 1~2분 뒤 새 버전으로 저절로 다시 켜져요. 그 사이에 앱을 직접 켜지 마세요.';
       track.hidden = true;
     } else if (m.phase === 'error') {
       $('updateText').textContent = '업데이트를 받지 못했어요: ' + (m.message || '') + ' — 다시 눌러 주세요.';
@@ -5238,7 +5238,14 @@
   }
   function stopStars() { if (secret.stars) cancelAnimationFrame(secret.stars); secret.stars = null; }
   function bindParty() {
-    $('noteText').addEventListener('input', function () { checkPartyWords(this.value); });
+    $('noteText').addEventListener('input', function () {
+      var before = this.value;
+      checkPartyWords(this.value);
+      // 숨은 단어(보노보노·가계부…)를 알아채 지웠으면 입력칸에서 손을 뗀다.
+      // 휴대폰 키보드는 친 단어를 '조립 중'으로 붙잡고 있다가 다른 곳을 누르는 순간 다시 넣어서,
+      // 닫기를 눌러도 화면이 곧바로 다시 열리는 일이 있었다. 지금 손을 떼면 그 자리에서 정리된다.
+      if (this.value !== before) this.blur();
+    });
     try { if (sessionStorage.getItem(PARTY_KEY) === '1') setParty(true, true); } catch (e) { /* 무시 */ }
   }
 

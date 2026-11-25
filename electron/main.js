@@ -190,6 +190,11 @@ async function installUpdate() {
     await new Promise((ok, bad) => { outStream.end(ok); outStream.on('error', bad); });
     if (total && got !== total) throw new Error('다 받지 못했어요');
     send({ phase: 'installing' });
+    // 앱이 꺼진 뒤 설치(1~2분) 도중에 다시 켜면 설치가 막힌다 → 알림으로 기다려 달라고 남긴다
+    try {
+      const { Notification } = require('electron');
+      if (Notification.isSupported()) new Notification({ title: '업데이트 설치 중', body: '1~2분 뒤 새 버전으로 저절로 다시 켜져요. 그 사이에 앱을 켜지 마세요.' }).show();
+    } catch (e) { /* 알림이 없어도 설치는 계속 */ }
     // 설치 프로그램을 띄우고 앱은 끝낸다 (기록은 같은 폴더에 남아 새 버전이 그대로 읽는다)
     const { spawn } = require('child_process');
     // /S: 창 없이 원래 설치 위치에 덮어쓰기, --force-run: 끝나면 새 버전을 바로 연다
