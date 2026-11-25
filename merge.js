@@ -36,6 +36,7 @@
       fishdex: {},
       meals: [],
       ledger: [],
+      shop: [],
       ledgerFixed: [],
       ledgerBudget: null,
       cat: null,
@@ -140,6 +141,29 @@
       memo: str(x.memo).trim().slice(0, 200),
       planned: !!x.planned,
       done: !!x.done,
+      createdAt: created,
+      updatedAt: num(x.updatedAt, created) || created
+    };
+  }
+
+  // 쇼핑 목록: 필요한 것(need) · 갖고 싶은 것(want). 산 것은 bought, 가계부에 적었으면 그 내역 id
+  function normShop(x) {
+    if (!isObj(x)) return null;
+    var text = str(x.text).trim().slice(0, 100);
+    if (!text) return null;
+    var price = Math.floor(Number(x.price));
+    var link = str(x.link).trim().slice(0, 500);
+    var created = num(x.createdAt, num(x.updatedAt, 0)) || 0;
+    return {
+      id: str(x.id) || uid(),
+      text: text,
+      kind: x.kind === 'want' ? 'want' : 'need',
+      price: price > 0 && price <= 1e13 ? price : 0,
+      link: /^https?:\/\//i.test(link) ? link : '',
+      memo: str(x.memo).trim().slice(0, 200),
+      bought: !!x.bought,
+      boughtAt: num(x.boughtAt, 0) || 0,
+      ledgerId: str(x.ledgerId).slice(0, 64),
       createdAt: created,
       updatedAt: num(x.updatedAt, created) || created
     };
@@ -395,6 +419,7 @@
     d.routines = normList(raw.routines, normRoutine);
     d.meals = normList(raw.meals, normMeal);
     d.ledger = normList(raw.ledger, normLedger);
+    d.shop = normList(raw.shop, normShop);
     d.ledgerFixed = normList(raw.ledgerFixed, normFixed);
     if (isObj(raw.cat)) {
       var lv = Math.floor(Number(raw.cat.level));
@@ -433,6 +458,7 @@
       d.routines.length === 0 &&
       d.meals.length === 0 &&
       d.ledger.length === 0 &&
+      d.shop.length === 0 &&
       d.ledgerFixed.length === 0 &&
       d.projects.work.length === 0 &&
       d.projects.personal.length === 0;
@@ -441,7 +467,7 @@
   // 사용자 입력 없이 초기 예시만 들어 있는 상태인가? (다른 기기 코드로 연결할 때 예시는 버린다)
   function isOnlySeeds(d) {
     d = normalize(d);
-    if (d.notes.length || d.events.length || d.routines.length || d.meals.length || d.ledger.length || d.ledgerFixed.length) return false;
+    if (d.notes.length || d.events.length || d.routines.length || d.meals.length || d.ledger.length || d.shop.length || d.ledgerFixed.length) return false;
     var allSeed = true;
     Object.keys(d.days).forEach(function (k) {
       d.days[k].tasks.forEach(function (t) { if (!t.seed) allSeed = false; });
@@ -632,6 +658,7 @@
 
     // 가계부: id 기준, 최신 쪽 우선
     out.ledger = mergeList(a.ledger, b.ledger, deleted, function (x) { return x.id; }, combineNote).sort(byCreated);
+    out.shop = mergeList(a.shop, b.shop, deleted, function (x) { return x.id; }, combineNote).sort(byCreated);
     out.ledgerFixed = mergeFixed(a.ledgerFixed, b.ledgerFixed, deleted);
     // 루틴냥이: 켜고 끈 건 나중 쪽, 단계와 마지막 진화일은 큰 쪽 (진화는 되돌아가지 않는다)
     if (a.cat || b.cat) {

@@ -72,7 +72,7 @@ const STATIC = {
 // 데이터는 비밀 동기화 코드로만 접근되므로 출처 제한은 두지 않는다.
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Expose-Headers': 'X-Planner-Build',
   'Access-Control-Max-Age': '86400'
@@ -172,6 +172,198 @@ async function handlePhoto(req, res, key, id) {
   res.end();
 }
 
+// ---------------------------------------------------------------- 보노보노 (친구와 함께 쓰는 방)
+// 동기화 코드는 내 기록 전체의 열쇠라서 친구에게 주면 안 된다. 그래서 코드에서 되돌릴 수 없는
+// '친구 코드'(8글자)를 만들어 그걸 주고받는다. 서로 상대 친구 코드를 넣어야(양쪽 다) 방이 열린다.
+const crypto = require('crypto');
+const BONO_ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const BONO_CODE_RE = /^[A-HJ-NP-Z2-9]{8}$/;
+const BONO_KINDS = ['msg', 'art', 'todo', 'poke'];
+const BONO_MAX_ITEMS = 2000;
+function bonoCode(key) {
+  const h = crypto.createHash('sha256').update('bonobono:' + key).digest();
+  let s = '';
+  for (let i = 0; i < 8; i++) s += BONO_ALPHA[h[i] % 32];
+  return s;
+}
+function bonoDir(...p) { return path.join(DATA_DIR, 'bono', ...p); }
+function readJson(file, fallback) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return fallback; } }
+function writeJson(file, obj) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file + '.tmp', JSON.stringify(obj));
+  fs.renameSync(file + '.tmp', file);
+}
+function bonoUser(code) { return readJson(bonoDir('users', code + '.json'), null); }
+function bonoSaveUser(code, u) { writeJson(bonoDir('users', code + '.json'), u); }
+function bonoRoomId(a, b) { return [a, b].sort().join('_'); }
+function bonoRoomFile(id) { return bonoDir('rooms', id + '.json'); }
+function bonoRoom(id) { return readJson(bonoRoomFile(id), null) || { items: [], moods: {}, updatedAt: 0 }; }
+function bonoId() { return Date.now().toString(36) + crypto.randomBytes(4).toString('hex'); }
+// 내 정보(없으면 만든다). 이름이 비어 있으면 '친구'
+function bonoMe(key) {
+  const code = bonoCode(key);
+  let u = bonoUser(code);
+  if (!u) { u = { key, name: '', friends: [], createdAt: Date.now() }; bonoSaveUser(code, u); }
+  else if (u.key !== key) { u.key = key; bonoSaveUser(code, u); }
+  return { code, u };
+}
+function bonoMutual(meCode, me, friendCode) {
+  if (!me.friends.includes(friendCode)) return null;
+  const f = bonoUser(friendCode);
+  if (!f || !f.friends.includes(meCode)) return null;
+  return f;
+}
+// 방이 바뀌면 두 사람의 모든 기기에 알린다 (각자 열려 있는 실시간 연결로)
+function bonoNotify(meCode, me, friendCode, friend, extra) {
+  const t = Date.now();
+  broadcast(me.key, Object.assign({ bono: friendCode, by: meCode, t }, extra));
+  if (friend && friend.key) broadcast(friend.key, Object.assign({ bono: meCode, by: meCode, from: me.name || '친구', t }, extra));
+}
+function bonoView(meCode, me, friendCode, room) {
+  const f = bonoUser(friendCode);
+  return { code: friendCode, name: (f && f.name) || '친구', items: room.items, moods: room.moods, updatedAt: room.updatedAt, me: meCode };
+}
+function bonoPhotoFile(roomId, id) { return bonoDir('rooms', roomId, id + '.jpg'); }
+function bonoJpeg(dataUrl) {
+  const m = String(dataUrl || '').match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/);
+  if (!m) return null;
+  const buf = Buffer.from(m[1], 'base64');
+  return buf[0] === 0xFF && buf[1] === 0xD8 ? buf : null;
+}
+
+async function handleBono(req, res, url, key, rest) {
+  if (!KEY_RE.test(key)) return sendJson(res, 400, { error: '잘못된 동기화 코드' });
+  const { code: meCode, u: me } = bonoMe(key);
+  const parts = rest ? rest.split('/').filter(Boolean) : [];
+  let body = {};
+  if (req.method === 'PUT' || req.method === 'POST') {
+    try { body = JSON.parse((await readBody(req)) || '{}') || {}; } catch (e) { return sendJson(res, 400, { error: '본문을 읽을 수 없음' }); }
+  }
+  // GET /api/bono/<키> — 내 친구 코드·이름·친구 목록
+  if (!parts.length && req.method === 'GET') {
+    const friends = me.friends.map((c) => {
+      const f = bonoUser(c);
+      const mutual = !!(f && f.friends.includes(meCode));
+      const out = { code: c, name: (f && f.name) || '', mutual };
+      if (mutual) {
+        const room = bonoRoom(bonoRoomId(meCode, c));
+        const last = room.items[room.items.length - 1];
+        out.updatedAt = room.updatedAt || 0;
+        if (last) out.last = { by: last.by, kind: last.kind, text: String(last.text || '').slice(0, 40), t: last.t };
+      }
+      return out;
+    });
+    // 나를 친구로 넣었지만 나는 아직 안 넣은 사람
+    let waiting = [];
+    try {
+      waiting = fs.readdirSync(bonoDir('users')).map((n) => n.replace(/\.json$/, '')).filter((c) => BONO_CODE_RE.test(c) && c !== meCode && !me.friends.includes(c))
+        .map((c) => ({ c, f: bonoUser(c) })).filter((x) => x.f && x.f.friends.includes(meCode)).map((x) => ({ code: x.c, name: x.f.name || '' }));
+    } catch (e) { /* 아직 아무도 없음 */ }
+    return sendJson(res, 200, { code: meCode, name: me.name || '', friends, waiting });
+  }
+  // PUT /api/bono/<키>/me {name}
+  if (parts[0] === 'me' && req.method === 'PUT') {
+    me.name = String(body.name || '').trim().slice(0, 20);
+    bonoSaveUser(meCode, me);
+    me.friends.forEach((c) => { const f = bonoMutual(meCode, me, c); if (f) bonoNotify(meCode, me, c, f, { kind: 'name', quiet: true }); });
+    return sendJson(res, 200, { ok: true, name: me.name });
+  }
+  // PUT·DELETE /api/bono/<키>/friend/<친구코드>
+  if (parts[0] === 'friend' && parts[1]) {
+    const c = String(parts[1]).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!BONO_CODE_RE.test(c) || c === meCode) return sendJson(res, 400, { error: '친구 코드가 맞지 않아요' });
+    if (req.method === 'PUT') {
+      if (!me.friends.includes(c)) { me.friends.push(c); me.friends = me.friends.slice(-50); bonoSaveUser(meCode, me); }
+      const f = bonoUser(c);
+      if (f && f.key) broadcast(f.key, { bono: meCode, by: meCode, from: me.name || '친구', kind: 'friend', t: Date.now() });
+      return sendJson(res, 200, { ok: true, code: c, exists: !!f, mutual: !!(f && f.friends.includes(meCode)) });
+    }
+    if (req.method === 'DELETE') {
+      me.friends = me.friends.filter((x) => x !== c);
+      bonoSaveUser(meCode, me);
+      return sendJson(res, 200, { ok: true });
+    }
+  }
+  // /api/bono/<키>/room/<친구코드>[/photo/<id>]
+  if (parts[0] === 'room' && parts[1]) {
+    const c = parts[1];
+    if (!BONO_CODE_RE.test(c)) return sendJson(res, 400, { error: '친구 코드가 맞지 않아요' });
+    const friend = bonoMutual(meCode, me, c);
+    if (!friend) return sendJson(res, 403, { error: '두 사람이 서로 친구 코드를 넣어야 열려요' });
+    const roomId = bonoRoomId(meCode, c);
+    if (parts[2] === 'photo' && parts[3] && req.method === 'GET') {
+      if (!PHOTO_ID_RE.test(parts[3])) return sendJson(res, 400, { error: '잘못된 주소' });
+      let buf;
+      try { buf = fs.readFileSync(bonoPhotoFile(roomId, parts[3])); } catch (e) { return sendJson(res, 404, { error: '사진 없음' }); }
+      res.writeHead(200, Object.assign({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' }, CORS));
+      return res.end(buf);
+    }
+    if (req.method === 'GET') {
+      const room = bonoRoom(roomId);
+      const since = Number(url.searchParams.get('since'));
+      if (since && room.updatedAt === since) { res.writeHead(204, Object.assign({ 'Cache-Control': 'no-store' }, CORS)); return res.end(); }
+      return sendJson(res, 200, bonoView(meCode, me, c, room));
+    }
+    if (req.method === 'POST') {
+      let note = null;
+      const result = await withLock('bono:' + roomId, () => {
+        const room = bonoRoom(roomId);
+        const t = Date.now();
+        const find = (id) => room.items.find((x) => x.id === id);
+        if (body.op === 'add') {
+          const kind = BONO_KINDS.includes(body.kind) ? body.kind : 'msg';
+          const item = { id: bonoId(), by: meCode, t, kind, text: String(body.text || '').trim().slice(0, kind === 'todo' ? 200 : 2000) };
+          if (body.photo) {
+            const buf = bonoJpeg(body.photo);
+            if (!buf) return { error: '사진을 읽을 수 없음' };
+            const pid = bonoId();
+            fs.mkdirSync(path.dirname(bonoPhotoFile(roomId, pid)), { recursive: true });
+            fs.writeFileSync(bonoPhotoFile(roomId, pid), buf);
+            item.photo = pid;
+          }
+          if (!item.text && !item.photo && kind !== 'poke') return { error: '내용이 비어 있어요' };
+          if (kind === 'todo') item.done = false;
+          room.items.push(item);
+          if (room.items.length > BONO_MAX_ITEMS) {
+            room.items.splice(0, room.items.length - BONO_MAX_ITEMS).forEach((x) => { if (x.photo) fs.rmSync(bonoPhotoFile(roomId, x.photo), { force: true }); });
+          }
+          note = { kind, preview: item.text.slice(0, 40) };
+        } else if (body.op === 'del') {
+          const it = find(String(body.id));
+          if (!it || it.by !== meCode) return { error: '내가 쓴 것만 지울 수 있어요' };
+          if (it.photo) fs.rmSync(bonoPhotoFile(roomId, it.photo), { force: true });
+          room.items = room.items.filter((x) => x !== it);
+          note = { kind: 'del', quiet: true };
+        } else if (body.op === 'toggle') {
+          const it = find(String(body.id));
+          if (!it || it.kind !== 'todo') return { error: '없는 항목' };
+          it.done = !it.done; it.doneBy = it.done ? meCode : ''; it.doneAt = it.done ? t : 0;
+          note = { kind: 'toggle', quiet: !it.done, preview: it.text.slice(0, 40) };
+        } else if (body.op === 'heart') {
+          const it = find(String(body.id));
+          if (!it) return { error: '없는 항목' };
+          const h = new Set(it.hearts || []);
+          if (h.has(meCode)) h.delete(meCode); else h.add(meCode);
+          it.hearts = [...h];
+          note = { kind: 'heart', quiet: !h.has(meCode) };
+        } else if (body.op === 'mood') {
+          room.moods[meCode] = { emoji: String(body.emoji || '').slice(0, 8), text: String(body.text || '').trim().slice(0, 60), t };
+          note = { kind: 'mood', preview: room.moods[meCode].emoji + ' ' + room.moods[meCode].text };
+        } else {
+          return { error: '알 수 없는 요청' };
+        }
+        room.updatedAt = Math.max(t, (room.updatedAt || 0) + 1);
+        writeJson(bonoRoomFile(roomId), room);
+        return { room };
+      });
+      if (result.error) return sendJson(res, 400, { error: result.error });
+      bonoNotify(meCode, me, c, friend, note || {});
+      return sendJson(res, 200, bonoView(meCode, me, c, result.room));
+    }
+  }
+  return sendJson(res, 404, { error: 'not found' });
+}
+
 function dataPath(key) {
   return path.join(DATA_DIR, key + '.json');
 }
@@ -220,6 +412,8 @@ async function handleApi(req, res, url) {
     if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }); return res.end(); }
     return handleStream(req, res, s[1]);
   }
+  const bn = url.pathname.match(/^\/api\/bono\/([^/]+)(\/.*)?$/);
+  if (bn) return handleBono(req, res, url, bn[1], bn[2] || '');
   const ph = url.pathname.match(/^\/api\/photo\/([^/]+)\/([^/]+)$/);
   if (ph) return handlePhoto(req, res, ph[1], ph[2]);
   const m = url.pathname.match(/^\/api\/data\/([^/]+)$/);

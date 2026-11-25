@@ -287,7 +287,13 @@
     if (!syncKey || typeof EventSource === 'undefined') return;
     try {
       stream = new EventSource(apiUrl('stream/' + encodeURIComponent(syncKey)));
-      stream.onmessage = function () { poll(); };
+      stream.onmessage = function (e) {
+        // 보노보노 신호는 내 기록과 상관없으니 받아 오기(poll)를 하지 않는다
+        var msg = null;
+        try { msg = JSON.parse(e.data); } catch (err) { /* 옛 신호 */ }
+        if (msg && msg.bono) { bonoSignal(msg); return; }
+        poll();
+      };
       stream.onopen = function () { if (sync.serverOk === false) poll(); };
     } catch (e) { stream = null; }
   }
@@ -2597,6 +2603,8 @@
     if (!AppPlugin || !AppPlugin.addListener) return;
     var lastBack = 0;
     AppPlugin.addListener('backButton', function () {
+      if (!$('bonoLayer').hidden) { bonoBack(); return; }
+      if (!$('shopLayer').hidden) { closeShop(); return; }
       if (!$('ledgerLayer').hidden) { ledgerBack(); return; }
       if (!$('mealLayer').hidden) { mealBack(); return; }
       if (!$('eventModal').hidden) { closeEventForm(); return; }
@@ -3994,6 +4002,602 @@
     });
   }
 
+  // ---------------------------------------------------------------- 쇼핑쇼핑 (빠른 기록에 "쇼핑쇼핑")
+  // 사야 할 것(need)·갖고 싶은 것(want). 체크하면 '산 것'으로 내려가고, 가격이 있으면 가계부에 '쇼핑' 지출로 적는다.
+  var SHOP_DONE_KEY = 'planner.v1.shopDoneOpen';
+  var shop = { kind: 'need' };
+  function openShop() {
+    $('shopLayer').hidden = false;
+    renderShop();
+    if (window.innerWidth > 760) $('shopText').focus();
+  }
+  function closeShop() { $('shopLayer').hidden = true; }
+  function shopItems(kind, bought) {
+    return (data.shop || []).filter(function (x) { return x.kind === kind && x.bought === bought; });
+  }
+  function shopDoneOpen() { try { return localStorage.getItem(SHOP_DONE_KEY) === '1'; } catch (e) { return false; } }
+  function renderShop() {
+    var need = shopItems('need', false), want = shopItems('want', false);
+    $('shopNeedN').textContent = need.length || '';
+    $('shopWantN').textContent = want.length || '';
+    Array.prototype.forEach.call($('shopTabs').children, function (b) {
+      var on = b.dataset.kind === shop.kind;
+      b.classList.toggle('is-on', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    $('shopLayer').classList.toggle('is-want', shop.kind === 'want');
+    $('shopText').placeholder = shop.kind === 'need' ? '사야 할 것 (예: 우유, 휴지)' : '갖고 싶은 것 (예: 새 운동화)';
+    var list = shop.kind === 'need' ? need : want;
+    var ul = $('shopList');
+    ul.innerHTML = '';
+    if (!list.length) ul.appendChild(el('li', 'empty', shop.kind === 'need' ? '사야 할 게 없어요 🎉' : '갖고 싶은 걸 적어 두세요 ✨'));
+    list.forEach(function (x) { ul.appendChild(shopItem(x)); });
+    var total = list.reduce(function (s, x) { return s + (x.price || 0); }, 0);
+    $('shopSum').textContent = list.length ? '남은 것 ' + list.length + '개' + (total ? ' · 모두 사면 ' + won(total) : '') : '';
+    var done = shopItems(shop.kind, true).sort(function (a, b) { return (b.boughtAt || 0) - (a.boughtAt || 0); });
+    var open = shopDoneOpen();
+    $('shopDoneToggle').hidden = !done.length;
+    $('shopDoneToggle').textContent = '산 것 ' + done.length + '개 ' + (open ? '▴' : '▾');
+    $('shopDoneToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+    var dl = $('shopDoneList');
+    dl.hidden = !open || !done.length;
+    dl.innerHTML = '';
+    done.forEach(function (x) { dl.appendChild(shopItem(x)); });
+  }
+  function shopItem(x) {
+    var li = el('li', 'shop-item' + (x.bought ? ' is-bought' : ''));
+    li.dataset.id = x.id;
+    var cb = el('input'); cb.type = 'checkbox'; cb.checked = x.bought; cb.dataset.action = 'buy';
+    cb.setAttribute('aria-label', '‘' + x.text + '’ ' + (x.bought ? '안 산 걸로 되돌리기' : '샀어요'));
+    li.appendChild(cb);
+    var body = el('div', 'shop-body');
+    var name = el('span', 'shop-name', x.text);
+    body.appendChild(name);
+    var meta = el('span', 'shop-meta');
+    if (x.price) meta.appendChild(el('b', '', won(x.price)));
+    if (x.bought && x.boughtAt) meta.appendChild(el('span', '', fmtMonthDay(keyOf(new Date(x.boughtAt))) + ' 샀어요' + (x.ledgerId ? ' · 가계부에 적음' : '')));
+    if (meta.childNodes.length) body.appendChild(meta);
+    li.appendChild(body);
+    if (x.link) {
+      var a = el('a', 'btn link shop-go', '🔗'); a.href = x.link; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.title = '사러 가기'; a.setAttribute('aria-label', '‘' + x.text + '’ 사러 가기');
+      li.appendChild(a);
+    }
+    if (!x.bought) {
+      var mv = el('button', 'btn link', x.kind === 'need' ? '💝' : '🧺'); mv.type = 'button'; mv.dataset.action = 'move';
+      mv.title = x.kind === 'need' ? '갖고 싶은 것으로 옮기기' : '사야 할 것으로 옮기기';
+      mv.setAttribute('aria-label', mv.title);
+      li.appendChild(mv);
+    }
+    var ed = el('button', 'btn link', '✏️'); ed.type = 'button'; ed.dataset.action = 'edit'; ed.title = '고치기'; ed.setAttribute('aria-label', '‘' + x.text + '’ 고치기');
+    li.appendChild(ed);
+    var del = el('button', 'btn link', '🗑'); del.type = 'button'; del.dataset.action = 'del'; del.title = '지우기'; del.setAttribute('aria-label', '‘' + x.text + '’ 지우기');
+    li.appendChild(del);
+    return li;
+  }
+  function shopFind(id) { return (data.shop || []).filter(function (x) { return x.id === id; })[0]; }
+  function shopPriceOf(v) { var n = Math.floor(Number(String(v || '').replace(/[^\d]/g, ''))); return n > 0 ? n : 0; }
+  function addShop() {
+    var text = $('shopText').value.trim();
+    if (!text) { $('shopText').focus(); return; }
+    var link = $('shopLink').value.trim();
+    if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
+    var t = now();
+    data.shop.push({ id: M.uid(), text: text.slice(0, 100), kind: shop.kind, price: shopPriceOf($('shopPrice').value), link: link.slice(0, 500), memo: '', bought: false, boughtAt: 0, ledgerId: '', createdAt: t, updatedAt: t });
+    save();
+    $('shopText').value = ''; $('shopPrice').value = ''; $('shopLink').value = '';
+    renderShop();
+    $('shopText').focus();
+  }
+  function toggleBought(x) {
+    var t = now();
+    x.bought = !x.bought;
+    x.updatedAt = t;
+    if (x.bought) {
+      x.boughtAt = t;
+      if (x.price && !x.ledgerId) {
+        var id = M.uid();
+        data.ledger.push({ id: id, dayKey: todayKey(), type: 'out', category: '쇼핑', amount: x.price, memo: x.text, planned: false, done: false, createdAt: t, updatedAt: t });
+        x.ledgerId = id;
+        toast('샀어요! 가계부에 ' + won(x.price) + ' 적었어요 🛍');
+      } else toast('샀어요! 🛍');
+    } else {
+      x.boughtAt = 0;
+      if (x.ledgerId) {
+        var lid = x.ledgerId;
+        data.ledger = data.ledger.filter(function (e) { return e.id !== lid; });
+        tombstone(lid);
+        x.ledgerId = '';
+        toast('되돌렸어요. 가계부에서도 뺐어요.');
+      }
+    }
+    save();
+    renderShop();
+  }
+  function bindShop() {
+    $('shopCloseBtn').addEventListener('click', closeShop);
+    $('shopTabs').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-kind]'); if (!b) return;
+      shop.kind = b.dataset.kind; renderShop();
+    });
+    $('shopForm').addEventListener('submit', function (e) { e.preventDefault(); addShop(); });
+    $('shopPrice').addEventListener('input', function () {
+      var n = shopPriceOf(this.value); this.value = n ? n.toLocaleString('ko-KR') : '';
+    });
+    $('shopDoneToggle').addEventListener('click', function () {
+      try { localStorage.setItem(SHOP_DONE_KEY, shopDoneOpen() ? '0' : '1'); } catch (err) { /* 무시 */ }
+      renderShop();
+    });
+    function onList(e) {
+      var li = e.target.closest('.shop-item'); if (!li) return;
+      var x = shopFind(li.dataset.id); if (!x) return;
+      var act = e.target.closest('[data-action]');
+      act = act && act.dataset.action;
+      if (act === 'buy') { toggleBought(x); return; }
+      if (act === 'move') {
+        x.kind = x.kind === 'need' ? 'want' : 'need'; x.updatedAt = now(); save(); renderShop();
+        toast(x.kind === 'need' ? '사야 할 것으로 옮겼어요' : '갖고 싶은 것으로 옮겼어요');
+        return;
+      }
+      if (act === 'del') {
+        if (!confirm('‘' + x.text + '’ 지울까요?')) return;
+        data.shop = data.shop.filter(function (s) { return s !== x; });
+        tombstone(x.id); save(); renderShop();
+        return;
+      }
+      if (act === 'edit') {
+        var body = li.querySelector('.shop-body');
+        inlineEdit(body, {
+          value: x.text, maxlength: 100, label: '이름 고치기',
+          extra: { value: x.price ? String(x.price) : '', placeholder: '가격', maxlength: 15, label: '가격' },
+          onSave: function (v, p) {
+            v = v.trim(); if (!v) { renderShop(); return; }
+            x.text = v.slice(0, 100); x.price = shopPriceOf(p); x.updatedAt = now();
+            save(); renderShop();
+          },
+          onCancel: renderShop
+        });
+      }
+    }
+    $('shopList').addEventListener('click', onList);
+    $('shopDoneList').addEventListener('click', onList);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !$('shopLayer').hidden && !e.target.closest('.inline-edit')) closeShop();
+    });
+  }
+
+  // ---------------------------------------------------------------- 보노보노 (빠른 기록에 "보노보노")
+  // 친구 코드(동기화 코드에서 만든 되돌릴 수 없는 8글자)를 서로 넣으면 둘만의 방이 열린다.
+  // 방 내용은 서버에만 있고(내 동기화 데이터와 따로), 바뀌면 실시간 연결로 신호가 온다.
+  var BONO_CUR_KEY = 'planner.v1.bonoCur';
+  var BONO_SEEN_KEY = 'planner.v1.bonoSeen';
+  var BONO_CODE_KEY = 'planner.v1.bonoCode';
+  var BONO_MOODS = ['😀', '😊', '🥰', '😎', '🤩', '😌', '😴', '🥱', '😢', '😭', '😤', '🤒', '🍀', '🔥', '💪', '🎉', '☕', '🍕'];
+  var bono = { me: null, friends: [], waiting: [], cur: '', room: null, tab: 'chat', timer: null, mood: '', artFile: null, sending: false };
+  try { bono.cur = localStorage.getItem(BONO_CUR_KEY) || ''; } catch (e) { /* 무시 */ }
+  function bonoSeen() { try { return JSON.parse(localStorage.getItem(BONO_SEEN_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function bonoMarkSeen(code, t) {
+    var s = bonoSeen(); if ((s[code] || 0) >= t) return;
+    s[code] = t; try { localStorage.setItem(BONO_SEEN_KEY, JSON.stringify(s)); } catch (e) { /* 무시 */ }
+  }
+  function bonoMyCode() { if (bono.me) return bono.me.code; try { return localStorage.getItem(BONO_CODE_KEY) || ''; } catch (e) { return ''; } }
+  function bonoApi(path, method, body) {
+    return fetch(apiUrl('bono/' + encodeURIComponent(syncKey) + path), {
+      method: method || 'GET',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      if (r.status === 204) return null;
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) { var err = new Error(j.error || ('HTTP ' + r.status)); err.status = r.status; throw err; }
+        return j;
+      });
+    });
+  }
+  function bonoPhotoUrl(id) { return apiUrl('bono/' + encodeURIComponent(syncKey) + '/room/' + bono.cur + '/photo/' + encodeURIComponent(id)); }
+  function bonoFmtCode(c) { return c ? c.slice(0, 4) + '-' + c.slice(4) : '…'; }
+  function bonoFriendName(code) {
+    if (bono.room && bono.room.code === code) return bono.room.name || '친구';
+    var f = bono.friends.filter(function (x) { return x.code === code; })[0];
+    return (f && f.name) || '친구';
+  }
+  function bonoPage(room) { $('bonoMain').classList.toggle('page-room', !!room); }
+
+  function openBono() {
+    $('bonoLayer').hidden = false;
+    var ok = !!syncKey;
+    $('bonoNoSync').hidden = ok;
+    $('bonoMe').hidden = !ok;
+    $('bonoFriends').hidden = !ok;
+    if (!ok) { showBonoRoom(false); return; }
+    loadBonoMe().then(function () {
+      var cur = bono.friends.filter(function (f) { return f.code === bono.cur && f.mutual; })[0];
+      if (cur && window.innerWidth > 760) selectBonoFriend(cur.code);
+      else { showBonoRoom(false); bonoPage(false); }
+    });
+    clearInterval(bono.timer);
+    bono.timer = setInterval(function () {
+      if (document.hidden || $('bonoLayer').hidden) return;
+      loadBonoMe(); if (bono.cur && !$('bonoRoomInner').hidden) loadBonoRoom();
+    }, 45000);
+  }
+  function closeBono() {
+    $('bonoLayer').hidden = true;
+    clearInterval(bono.timer); bono.timer = null;
+    $('bonoLightbox').hidden = true; $('bonoArtCompose').hidden = true;
+  }
+  function bonoBack() {
+    if (!$('bonoLightbox').hidden) { $('bonoLightbox').hidden = true; return; }
+    if (!$('bonoArtCompose').hidden) { $('bonoArtCompose').hidden = true; return; }
+    if (!$('bonoMoodPick').hidden) { $('bonoMoodPick').hidden = true; return; }
+    if ($('bonoMain').classList.contains('page-room')) { bonoPage(false); return; }
+    closeBono();
+  }
+  function loadBonoMe() {
+    return bonoApi('').then(function (j) {
+      bono.me = { code: j.code, name: j.name };
+      bono.friends = j.friends || []; bono.waiting = j.waiting || [];
+      try { localStorage.setItem(BONO_CODE_KEY, j.code); } catch (e) { /* 무시 */ }
+      $('bonoMyCode').textContent = bonoFmtCode(j.code);
+      if (document.activeElement !== $('bonoName')) $('bonoName').value = j.name || '';
+      renderBonoFriends();
+    }).catch(function () { toast('보노보노 서버에 연결하지 못했어요.', true); });
+  }
+  function renderBonoFriends() {
+    var ul = $('bonoFriends'), seen = bonoSeen(), me = bonoMyCode();
+    ul.innerHTML = '';
+    bono.waiting.forEach(function (w) {
+      var li = el('li', 'bono-friend is-waiting');
+      li.appendChild(el('span', 'bono-av', '👋'));
+      var b = el('div', 'bono-f-body');
+      b.appendChild(el('b', '', (w.name || '누군가') + '님이 나를 친구로 넣었어요'));
+      b.appendChild(el('span', 'muted small', bonoFmtCode(w.code)));
+      li.appendChild(b);
+      var ok = el('button', 'btn primary small', '받기'); ok.type = 'button'; ok.dataset.accept = w.code;
+      li.appendChild(ok);
+      ul.appendChild(li);
+    });
+    if (!bono.friends.length && !bono.waiting.length) ul.appendChild(el('li', 'empty', '아직 연결된 친구가 없어요. 친구 코드를 주고받아 보세요.'));
+    bono.friends.forEach(function (f) {
+      var li = el('li', 'bono-friend' + (f.code === bono.cur ? ' is-on' : '') + (f.mutual ? '' : ' is-pending'));
+      li.dataset.code = f.code;
+      li.appendChild(el('span', 'bono-av', f.mutual ? (f.name ? f.name.slice(0, 1) : '🦦') : '⏳'));
+      var b = el('div', 'bono-f-body');
+      b.appendChild(el('b', '', f.name || bonoFmtCode(f.code)));
+      var sub = !f.mutual ? '친구도 내 코드를 넣으면 열려요'
+        : !f.last ? '첫 인사를 건네 보세요'
+        : f.last.kind === 'poke' ? '👉 콕!' : f.last.kind === 'art' ? '🖼 전시회에 사진' : (f.last.kind === 'todo' ? '✅ ' : '') + (f.last.text || '📷 사진');
+      b.appendChild(el('span', 'muted small', sub));
+      li.appendChild(b);
+      if (f.mutual && f.last && f.last.by !== me && (f.updatedAt || 0) > (seen[f.code] || 0) && f.code !== bono.cur) li.appendChild(el('span', 'bono-dot'));
+      var x = el('button', 'btn link bono-unfriend', '✕'); x.type = 'button'; x.dataset.unfriend = f.code;
+      x.title = '연결 끊기'; x.setAttribute('aria-label', (f.name || f.code) + ' 연결 끊기');
+      li.appendChild(x);
+      ul.appendChild(li);
+    });
+  }
+  function addBonoFriend(code) {
+    code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length !== 8) { toast('친구 코드는 8글자예요.', true); return; }
+    if (code === bonoMyCode()) { toast('내 코드예요. 친구의 코드를 넣어 주세요 🙂', true); return; }
+    bonoApi('/friend/' + code, 'PUT', {}).then(function (j) {
+      $('bonoAddCode').value = '';
+      toast(j.mutual ? '연결됐어요! 🦦' : j.exists ? '넣었어요. 친구도 내 코드를 넣으면 열려요.' : '넣었어요. 친구가 보노보노를 열고 내 코드를 넣으면 열려요.');
+      return loadBonoMe().then(function () { if (j.mutual) selectBonoFriend(code); });
+    }).catch(function (e) { toast(e.message || '연결하지 못했어요.', true); });
+  }
+  function showBonoRoom(on) {
+    $('bonoEmpty').hidden = on;
+    $('bonoRoomInner').hidden = !on;
+  }
+  function selectBonoFriend(code) {
+    var f = bono.friends.filter(function (x) { return x.code === code; })[0];
+    if (!f) return;
+    if (!f.mutual) { toast('친구도 내 친구 코드(' + bonoFmtCode(bonoMyCode()) + ')를 넣어야 열려요.'); return; }
+    if (bono.cur !== code) { bono.room = null; bono.cur = code; try { localStorage.setItem(BONO_CUR_KEY, code); } catch (e) { /* 무시 */ } }
+    showBonoRoom(true);
+    bonoPage(true);
+    $('bonoRoomName').textContent = f.name || bonoFmtCode(code);
+    $('bonoMoodPick').hidden = true;
+    renderBonoFriends();
+    renderBonoRoom(true);
+    loadBonoRoom(true);
+  }
+  function loadBonoRoom(first) {
+    var code = bono.cur;
+    if (!code) return Promise.resolve();
+    var since = !first && bono.room && bono.room.code === code ? bono.room.updatedAt : 0;
+    return bonoApi('/room/' + code + (since ? '?since=' + since : '')).then(function (j) {
+      if (!j || code !== bono.cur) return;
+      bono.room = j;
+      renderBonoRoom(first);
+    }).catch(function (e) {
+      if (e.status === 403) { toast('친구가 연결을 끊었어요.', true); loadBonoMe(); showBonoRoom(false); bonoPage(false); }
+    });
+  }
+  function bonoAfterPost(j) {
+    if (j && j.code === bono.cur) { bono.room = j; renderBonoRoom(false, true); }
+  }
+  function bonoPost(body) {
+    if (!bono.cur) return Promise.reject(new Error('친구를 골라 주세요'));
+    return bonoApi('/room/' + bono.cur, 'POST', body).then(function (j) { bonoAfterPost(j); return j; })
+      .catch(function (e) { toast(e.message || '보내지 못했어요.', true); throw e; });
+  }
+  function bonoTime(t) { var d = new Date(t); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+  function bonoDay(t) { var d = new Date(t); return keyOf(d) === todayKey() ? '오늘' : fmtMonthDay(keyOf(d)) + ' ' + WEEKDAYS[d.getDay()] + '요일'; }
+  function bonoImg(id, cls) {
+    var img = el('img', cls || ''); img.loading = 'lazy'; img.alt = '사진'; img.src = bonoPhotoUrl(id);
+    img.dataset.photo = id;
+    return img;
+  }
+  function renderBonoRoom(first, mine) {
+    var r = bono.room;
+    var me = bonoMyCode();
+    Array.prototype.forEach.call($('bonoTabs').children, function (b) {
+      var on = b.dataset.tab === bono.tab; b.classList.toggle('is-on', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    $('bonoChat').hidden = bono.tab !== 'chat';
+    $('bonoArt').hidden = bono.tab !== 'art';
+    $('bonoTodo').hidden = bono.tab !== 'todo';
+    if (!r) { $('bonoMsgs').innerHTML = ''; $('bonoMsgs').appendChild(el('li', 'bono-note', '불러오는 중…')); $('bonoArtGrid').innerHTML = ''; $('bonoTodos').innerHTML = ''; $('bonoMoods').innerHTML = ''; return; }
+    $('bonoRoomName').textContent = r.name || bonoFmtCode(r.code);
+    bonoMarkSeen(r.code, r.updatedAt || 0);
+    renderBonoMoods(r, me);
+    // 대화
+    var box = $('bonoMsgs');
+    var nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    box.innerHTML = '';
+    var lastDay = '';
+    var talk = r.items;
+    if (!talk.length) box.appendChild(el('li', 'bono-note', (r.name || '친구') + '님과의 방이 열렸어요. 첫 인사를 건네 보세요 👋'));
+    talk.forEach(function (x) {
+      var day = bonoDay(x.t);
+      if (day !== lastDay) { box.appendChild(el('li', 'bono-day', day)); lastDay = day; }
+      var who = x.by === me ? '나' : (r.name || '친구');
+      if (x.kind === 'poke') { box.appendChild(el('li', 'bono-note is-poke', '👉 ' + who + (x.by === me ? '가' : '님이') + ' 콕 찔렀어요 · ' + bonoTime(x.t))); return; }
+      if (x.kind === 'todo') { box.appendChild(el('li', 'bono-note', '✅ ' + who + (x.by === me ? '가' : '님이') + ' 같이 할 것에 ‘' + x.text + '’ 추가')); return; }
+      if (x.kind === 'art') {
+        var n = el('li', 'bono-note is-art');
+        n.appendChild(el('span', '', '🖼 ' + who + (x.by === me ? '가' : '님이') + ' 전시회에 사진을 걸었어요'));
+        if (x.photo) { var ti = bonoImg(x.photo, 'bono-note-thumb'); n.appendChild(ti); }
+        box.appendChild(n); return;
+      }
+      var li = el('li', 'bono-msg' + (x.by === me ? ' is-me' : ''));
+      li.dataset.id = x.id;
+      var bub = el('div', 'bono-bubble');
+      if (x.photo) bub.appendChild(bonoImg(x.photo, 'bono-msg-img'));
+      if (x.text) bub.appendChild(el('p', '', x.text));
+      li.appendChild(bub);
+      var side = el('span', 'bono-time', bonoTime(x.t));
+      li.appendChild(side);
+      if (x.by === me) { var d = el('button', 'btn link bono-del', '✕'); d.type = 'button'; d.dataset.del = x.id; d.title = '지우기'; d.setAttribute('aria-label', '메시지 지우기'); li.appendChild(d); }
+      box.appendChild(li);
+    });
+    if (first || mine || nearBottom) requestAnimationFrame(function () { box.scrollTop = box.scrollHeight; });
+    // 전시회
+    var grid = $('bonoArtGrid');
+    grid.innerHTML = '';
+    var arts = r.items.filter(function (x) { return x.photo; }).slice().reverse();
+    if (!arts.length) grid.appendChild(el('p', 'bono-note', '아직 걸린 사진이 없어요. 첫 작품을 걸어 보세요 🖼'));
+    arts.forEach(function (x) {
+      var fig = el('figure', 'bono-art' + (x.kind === 'art' ? ' is-art' : ''));
+      fig.dataset.id = x.id;
+      var frame = el('div', 'bono-frame');
+      frame.appendChild(bonoImg(x.photo));
+      fig.appendChild(frame);
+      var cap = el('figcaption');
+      if (x.text) cap.appendChild(el('b', '', x.text));
+      cap.appendChild(el('span', 'muted small', (x.by === me ? '나' : (r.name || '친구')) + ' · ' + bonoDay(x.t)));
+      var row = el('div', 'bono-art-row');
+      var hearts = x.hearts || [];
+      var h = el('button', 'btn link bono-heart' + (hearts.indexOf(me) >= 0 ? ' is-on' : ''), (hearts.indexOf(me) >= 0 ? '❤️' : '🤍') + (hearts.length ? ' ' + hearts.length : ''));
+      h.type = 'button'; h.dataset.heart = x.id; h.setAttribute('aria-label', '좋아요');
+      row.appendChild(h);
+      if (x.by === me) { var dd = el('button', 'btn link', '🗑'); dd.type = 'button'; dd.dataset.del = x.id; dd.title = '내리기'; dd.setAttribute('aria-label', '사진 내리기'); row.appendChild(dd); }
+      cap.appendChild(row);
+      fig.appendChild(cap);
+      grid.appendChild(fig);
+    });
+    // 같이 할 것
+    var tl = $('bonoTodos');
+    tl.innerHTML = '';
+    var todos = r.items.filter(function (x) { return x.kind === 'todo'; });
+    todos.sort(function (a, b) { return (a.done ? 1 : 0) - (b.done ? 1 : 0) || (a.done ? (b.doneAt || 0) - (a.doneAt || 0) : a.t - b.t); });
+    if (!todos.length) tl.appendChild(el('li', 'empty', '둘이 같이 하고 싶은 걸 적어 보세요.'));
+    todos.forEach(function (x) {
+      var li = el('li', 'bono-todo' + (x.done ? ' is-done' : ''));
+      var lb = el('label');
+      var cb = el('input'); cb.type = 'checkbox'; cb.checked = !!x.done; cb.dataset.toggle = x.id;
+      lb.appendChild(cb);
+      lb.appendChild(el('span', 'bono-todo-text', x.text));
+      li.appendChild(lb);
+      var by = x.done ? '✔ ' + (x.doneBy === me ? '나' : (r.name || '친구')) : (x.by === me ? '나' : (r.name || '친구'));
+      li.appendChild(el('span', 'muted small', by));
+      if (x.by === me) { var d2 = el('button', 'btn link', '🗑'); d2.type = 'button'; d2.dataset.del = x.id; d2.setAttribute('aria-label', '지우기'); li.appendChild(d2); }
+      tl.appendChild(li);
+    });
+  }
+  function renderBonoMoods(r, me) {
+    var box = $('bonoMoods');
+    box.innerHTML = '';
+    [[r.code, r.name || '친구'], [me, '나']].forEach(function (p) {
+      var m = r.moods && r.moods[p[0]];
+      var fresh = m && keyOf(new Date(m.t)) === todayKey();
+      var chip = el(p[0] === me ? 'button' : 'div', 'bono-mood' + (p[0] === me ? ' is-me' : ''));
+      if (p[0] === me) { chip.type = 'button'; chip.id = 'bonoMyMood'; chip.title = '오늘 내 기분 바꾸기'; }
+      chip.appendChild(el('span', 'bono-mood-emoji', fresh && m.emoji ? m.emoji : (p[0] === me ? '➕' : '·')));
+      var t = el('span', 'bono-mood-text');
+      t.appendChild(el('b', '', p[1]));
+      t.appendChild(el('span', '', fresh ? (m.text || '오늘의 기분') : (p[0] === me ? '오늘 기분 남기기' : '아직 오늘 기분이 없어요')));
+      chip.appendChild(t);
+      box.appendChild(chip);
+    });
+  }
+  function bonoReadPhoto(file) {
+    return loadImageFile(file).then(function (o) { return o.full; });
+  }
+  // 실시간 신호: 방이 바뀜 / 친구 요청. 열려 있으면 다시 받고, 닫혀 있으면 살짝 알려 준다.
+  var bonoSignalT = null;
+  function bonoSignal(msg) {
+    var me = bonoMyCode();
+    if (!$('bonoLayer').hidden) {
+      clearTimeout(bonoSignalT);
+      bonoSignalT = setTimeout(function () {
+        loadBonoMe();
+        if (msg.bono === bono.cur && !$('bonoRoomInner').hidden) loadBonoRoom();
+      }, 150);
+      if (msg.kind === 'poke' && msg.by !== me && msg.bono === bono.cur) bonoShake();
+      return;
+    }
+    if (msg.quiet || (me && msg.by === me)) return;
+    var who = msg.from || '친구';
+    var text = msg.kind === 'poke' ? who + '님이 콕 찔렀어요 👉'
+      : msg.kind === 'friend' ? who + '님이 친구 코드를 넣었어요'
+      : msg.kind === 'art' ? who + '님이 전시회에 사진을 걸었어요 🖼'
+      : msg.kind === 'mood' ? who + '님의 오늘 기분: ' + (msg.preview || '')
+      : msg.kind === 'todo' ? who + '님이 같이 할 것을 추가했어요'
+      : msg.kind === 'toggle' ? who + '님이 ‘' + (msg.preview || '') + '’ 했어요 ✅'
+      : msg.kind === 'heart' ? who + '님이 사진에 ❤️'
+      : who + ': ' + (msg.preview || '📷 사진');
+    toast('🦦 ' + text + ' · 빠른 기록에 ‘보노보노’');
+  }
+  function bonoShake() {
+    var r = $('bonoRoomInner');
+    r.classList.remove('is-poked'); void r.offsetWidth; r.classList.add('is-poked');
+    setTimeout(function () { r.classList.remove('is-poked'); }, 700);
+  }
+  function bindBono() {
+    $('bonoCloseBtn').addEventListener('click', closeBono);
+    $('bonoBack').addEventListener('click', function () { bonoPage(false); });
+    $('bonoCopy').addEventListener('click', function () {
+      var c = bonoFmtCode(bonoMyCode());
+      var done = function () { toast('친구 코드 ' + c + ' 를 복사했어요'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c).then(done, function () { prompt('친구 코드', c); });
+      else prompt('친구 코드', c);
+    });
+    $('bonoName').addEventListener('change', function () {
+      var v = this.value.trim();
+      bonoApi('/me', 'PUT', { name: v }).then(function () { toast(v ? '이름을 ‘' + v + '’(으)로 정했어요' : '이름을 지웠어요'); loadBonoMe(); }).catch(function () { toast('이름을 저장하지 못했어요.', true); });
+    });
+    $('bonoName').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
+    $('bonoAddForm').addEventListener('submit', function (e) { e.preventDefault(); addBonoFriend($('bonoAddCode').value); });
+    $('bonoFriends').addEventListener('click', function (e) {
+      var acc = e.target.closest('[data-accept]');
+      if (acc) { addBonoFriend(acc.dataset.accept); return; }
+      var un = e.target.closest('[data-unfriend]');
+      if (un) {
+        var code = un.dataset.unfriend;
+        if (!confirm('이 친구와 연결을 끊을까요? (다시 코드를 넣으면 대화가 그대로 돌아와요)')) return;
+        bonoApi('/friend/' + code, 'DELETE').then(function () {
+          if (bono.cur === code) { bono.cur = ''; bono.room = null; showBonoRoom(false); bonoPage(false); }
+          loadBonoMe();
+        });
+        return;
+      }
+      var li = e.target.closest('.bono-friend[data-code]');
+      if (li) selectBonoFriend(li.dataset.code);
+    });
+    $('bonoTabs').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-tab]'); if (!b) return;
+      bono.tab = b.dataset.tab; renderBonoRoom(bono.tab === 'chat');
+    });
+    $('bonoMsgForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = $('bonoMsgText').value.trim();
+      if (!v || bono.sending) return;
+      bono.sending = true;
+      $('bonoMsgText').value = '';
+      bonoPost({ op: 'add', kind: 'msg', text: v }).catch(function () { $('bonoMsgText').value = v; })
+        .then(function () { bono.sending = false; });
+    });
+    $('bonoMsgPhoto').addEventListener('change', function () {
+      var f = this.files && this.files[0]; this.value = '';
+      if (!f) return;
+      toast('사진 보내는 중…');
+      bonoReadPhoto(f).then(function (url) {
+        var v = $('bonoMsgText').value.trim(); $('bonoMsgText').value = '';
+        return bonoPost({ op: 'add', kind: 'msg', text: v, photo: url });
+      }).catch(function (e) { if (e && e.message) toast(e.message, true); });
+    });
+    $('bonoArtPhoto').addEventListener('change', function () {
+      var f = this.files && this.files[0]; this.value = '';
+      if (!f) return;
+      bonoReadPhoto(f).then(function (url) {
+        bono.artFile = url;
+        $('bonoArtPreview').src = url;
+        $('bonoArtCaption').value = '';
+        $('bonoArtCompose').hidden = false;
+        $('bonoArtCaption').focus();
+      }).catch(function (e) { toast(e.message || '사진을 열지 못했어요.', true); });
+    });
+    $('bonoArtCancel').addEventListener('click', function () { $('bonoArtCompose').hidden = true; bono.artFile = null; });
+    $('bonoArtForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!bono.artFile) return;
+      var body = { op: 'add', kind: 'art', text: $('bonoArtCaption').value.trim(), photo: bono.artFile };
+      $('bonoArtCompose').hidden = true; bono.artFile = null;
+      toast('사진 거는 중…');
+      bonoPost(body).then(function () { toast('전시회에 걸었어요 🖼'); });
+    });
+    $('bonoTodoForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = $('bonoTodoText').value.trim(); if (!v) return;
+      $('bonoTodoText').value = '';
+      bonoPost({ op: 'add', kind: 'todo', text: v }).catch(function () { $('bonoTodoText').value = v; });
+    });
+    $('bonoPoke').addEventListener('click', function () {
+      bonoShake();
+      bonoPost({ op: 'add', kind: 'poke' }).then(function () { toast('👉 콕!'); });
+    });
+    // 지우기·좋아요·체크·사진 크게 보기 (세 칸 공통)
+    $('bonoRoomInner').addEventListener('click', function (e) {
+      var del = e.target.closest('[data-del]');
+      if (del) { if (confirm('지울까요?')) bonoPost({ op: 'del', id: del.dataset.del }); return; }
+      var heart = e.target.closest('[data-heart]');
+      if (heart) { bonoPost({ op: 'heart', id: heart.dataset.heart }); return; }
+      var tg = e.target.closest('[data-toggle]');
+      if (tg) { e.preventDefault(); bonoPost({ op: 'toggle', id: tg.dataset.toggle }); return; }
+      var img = e.target.closest('img[data-photo]');
+      if (img) {
+        var it = bono.room && bono.room.items.filter(function (x) { return x.photo === img.dataset.photo; })[0];
+        $('bonoLightImg').src = img.src;
+        $('bonoLightCap').textContent = it && it.text ? it.text : '';
+        $('bonoLightbox').hidden = false;
+        return;
+      }
+      if (e.target.closest('#bonoMyMood')) {
+        var pick = $('bonoMoodPick');
+        pick.hidden = !pick.hidden;
+        if (!pick.hidden) {
+          var mm = bono.room && bono.room.moods && bono.room.moods[bonoMyCode()];
+          bono.mood = mm && keyOf(new Date(mm.t)) === todayKey() ? mm.emoji : '';
+          $('bonoMoodText').value = mm && keyOf(new Date(mm.t)) === todayKey() ? mm.text : '';
+          renderMoodEmojis();
+        }
+      }
+    });
+    function renderMoodEmojis() {
+      var box = $('bonoMoodEmojis'); box.innerHTML = '';
+      BONO_MOODS.forEach(function (m) {
+        var b = el('button', 'bono-emoji' + (m === bono.mood ? ' is-on' : ''), m); b.type = 'button'; b.dataset.mood = m;
+        box.appendChild(b);
+      });
+    }
+    $('bonoMoodEmojis').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-mood]'); if (!b) return;
+      bono.mood = b.dataset.mood; renderMoodEmojis();
+    });
+    $('bonoMoodForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!bono.mood) { toast('기분 이모지를 골라 주세요.', true); return; }
+      $('bonoMoodPick').hidden = true;
+      bonoPost({ op: 'mood', emoji: bono.mood, text: $('bonoMoodText').value.trim() });
+    });
+    $('bonoLightbox').addEventListener('click', function () { $('bonoLightbox').hidden = true; });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !$('bonoLayer').hidden) bonoBack();
+    });
+  }
+
   // ---------------------------------------------------------------- 루틴냥이 (빠른 기록에 "루틴냥이")
   // 그날 루틴을 다 채우면 하루에 한 번 진화한다. 1~365단계, 단계마다 생김새가 모두 다르다(코드로 그림).
   // 성장 구조: 단계(n)에 따라 장비 칸들이 서로 다른 주기로 업그레이드된다.
@@ -4352,6 +4956,16 @@
     if (/낚시낚시/.test(text)) {
       $('noteText').value = text.replace(/낚시낚시/g, '');
       openFishing();
+      return;
+    }
+    if (/보노보노/.test(text)) {
+      $('noteText').value = text.replace(/보노보노/g, '');
+      openBono();
+      return;
+    }
+    if (/쇼핑쇼핑/.test(text)) {
+      $('noteText').value = text.replace(/쇼핑쇼핑/g, '');
+      openShop();
       return;
     }
     if (/가계부/.test(text)) {
@@ -4774,6 +5388,7 @@
     renderProjects();
     if (!$('mealLayer').hidden) { renderMealCalendar(); renderMealDay(); }
     if (!$('ledgerLayer').hidden) renderLedger();
+    if (!$('shopLayer').hidden) renderShop();
   }
 
   // ---------------------------------------------------------------- 이벤트 바인딩
@@ -4805,6 +5420,8 @@
     bindSecret();
     bindFishing();
     bindCat();
+    bindShop();
+    bindBono();
     makeSortable($('taskList'), function (ids) {
       var list = tasksOf(selectedKey).filter(function (t) { return !t.routineId; });
       if (applyOrder(list, ids)) save();
