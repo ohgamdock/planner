@@ -207,6 +207,7 @@
           </div>
 
           <!-- 오늘 루틴: 하루 계획과 따로 (루틴이 있는 날만 보임) -->
+          <div class="routine-row">
           <div class="card" id="routineDayCard" hidden>
             <div class="card-head">
               <div>
@@ -217,6 +218,15 @@
             </div>
             <div class="progress" aria-hidden="true"><div class="progress-bar" id="routineProgress"></div></div>
             <ul class="task-list" id="routineTaskList"></ul>
+          </div>
+          <!-- 루틴냥이: 빠른 기록에 "루틴냥이"라고 치면 키울 수 있다 -->
+          <div class="card cat-card" id="catCard" hidden>
+            <div class="cat-head"><span class="cat-tier" id="catTier"></span><span class="cat-level" id="catLevel"></span></div>
+            <div class="cat-stage" id="catStage"></div>
+            <p class="cat-msg" id="catMsg"></p>
+            <div class="progress" aria-hidden="true"><div class="progress-bar" id="catProgress"></div></div>
+            <p class="muted small cat-sub" id="catSub"></p>
+          </div>
           </div>
 
           <div class="card">
@@ -883,6 +893,19 @@
   </div>
 
   <!-- 오늘의 각오 적기 (하루 첫 실행) -->
+  <div class="modal" id="catAsk" hidden>
+    <div class="modal-backdrop" id="catAskBackdrop"></div>
+    <div class="modal-card cat-ask-card" role="dialog" aria-modal="true" aria-labelledby="catAskTitle">
+      <div class="cat-ask-preview" id="catAskPreview"></div>
+      <h2 id="catAskTitle">루틴냥이를 키울까요?</h2>
+      <p class="muted small" id="catAskText"></p>
+      <div class="form-actions">
+        <button type="button" class="btn ghost" id="catAskNo">다음에</button>
+        <button type="button" class="btn primary" id="catAskYes">키울래요</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal" id="resolutionModal" hidden>
     <div class="modal-backdrop" id="resolutionBackdrop"></div>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="resolutionModalTitle">

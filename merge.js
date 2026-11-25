@@ -38,6 +38,7 @@
       ledger: [],
       ledgerFixed: [],
       ledgerBudget: null,
+      cat: null,
       events: [],
       projects: { work: [], personal: [] },
       routines: [],
@@ -84,6 +85,9 @@
     var dk = str(t.dayKey);
     if (DATE_RE.test(dk)) task.dayKey = dk;
     if (t.logged) task.logged = true;
+    var order = Number(t.order);
+    if (isFinite(order) && t.order !== null && t.order !== '' && t.order !== undefined) task.order = order;
+    if (t.star) task.star = true;
     return task;
   }
 
@@ -392,6 +396,15 @@
     d.meals = normList(raw.meals, normMeal);
     d.ledger = normList(raw.ledger, normLedger);
     d.ledgerFixed = normList(raw.ledgerFixed, normFixed);
+    if (isObj(raw.cat)) {
+      var lv = Math.floor(Number(raw.cat.level));
+      d.cat = {
+        on: !!raw.cat.on,
+        onAt: num(raw.cat.onAt, 0) || 0,
+        level: lv >= 1 ? Math.min(365, lv) : 1,
+        last: DATE_RE.test(str(raw.cat.last)) ? raw.cat.last : ''
+      };
+    }
     if (isObj(raw.ledgerBudget)) {
       var ba = Math.floor(Number(raw.ledgerBudget.amount));
       if (ba >= 0 && ba <= 1e13) d.ledgerBudget = { amount: ba, period: raw.ledgerBudget.period === 'week' ? 'week' : 'month', payday: (function (p) { p = Math.floor(Number(p)); return p >= 1 && p <= 31 ? p : 0; })(raw.ledgerBudget.payday), updatedAt: num(raw.ledgerBudget.updatedAt, 0) || 0 };
@@ -620,6 +633,12 @@
     // 가계부: id 기준, 최신 쪽 우선
     out.ledger = mergeList(a.ledger, b.ledger, deleted, function (x) { return x.id; }, combineNote).sort(byCreated);
     out.ledgerFixed = mergeFixed(a.ledgerFixed, b.ledgerFixed, deleted);
+    // 루틴냥이: 켜고 끈 건 나중 쪽, 단계와 마지막 진화일은 큰 쪽 (진화는 되돌아가지 않는다)
+    if (a.cat || b.cat) {
+      var ca = a.cat, cb = b.cat;
+      var base = !cb ? ca : !ca ? cb : (cb.onAt > ca.onAt ? cb : ca);
+      out.cat = { on: base.on, onAt: base.onAt, level: Math.max(ca ? ca.level : 1, cb ? cb.level : 1), last: [(ca && ca.last) || '', (cb && cb.last) || ''].sort().pop() };
+    }
     if (a.ledgerBudget || b.ledgerBudget) out.ledgerBudget = (!b.ledgerBudget || (a.ledgerBudget && a.ledgerBudget.updatedAt >= b.ledgerBudget.updatedAt)) ? a.ledgerBudget : b.ledgerBudget;
     // 식단: id 기준, 최신 쪽 우선
     out.meals = mergeList(a.meals, b.meals, deleted, function (m) { return m.id; }, combineNote).sort(byCreated);
