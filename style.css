@@ -1682,6 +1682,8 @@ body.desktop .fish-result { padding-top: 56px; }
 .meal-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; }
 body.desktop .meal-main { padding-top: 44px; }
 body.desktop .meal-day { padding-top: 48px; }
+/* 창 끌기 영역(상단바) 아래로 내려야 닫기 버튼이 눌린다 */
+body.desktop .bono-main, body.desktop .shop-main { padding-top: 56px; }
 @media (max-width: 760px) {
   .meal-main { padding-left: 8px; padding-right: 8px; }
   .meal-head .btn { padding-left: 10px; padding-right: 10px; }
